@@ -138,21 +138,51 @@ public class VmdMotionFrame
     }
 }
 
+public class VmdIkEnable
+{
+    public string IkName { get; set; }
+    public bool Enable { get; set; }
+
+    public VmdIkEnable(string ikName, bool enable)
+    {
+        IkName = ikName;
+        Enable = enable;
+    }
+}
+
+public class VmdIkFrame
+{
+    public uint FrameNumber { get; set; }
+    public bool Display { get; set; }
+    public List<VmdIkEnable> IkEnables { get; set; }
+
+    public VmdIkFrame()
+    {
+        FrameNumber = 0;
+        Display = true;
+        IkEnables = new List<VmdIkEnable>();
+    }
+}
+
 public class VmdExporter
 {
-    public void Export(List<VmdMotionFrame> frames, string modelName, string filePath)
+    public void Export(List<VmdMotionFrame> frames, List<VmdIkFrame> ikFrames, string modelName, string filePath)
     {
         var shiftJisEncoding = Encoding.GetEncoding("Shift_JIS");
 
         using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
         using (var writer = new BinaryWriter(fs))
         {
+            // 寫入VMD標頭
             writer.Write(shiftJisEncoding.GetBytes("Vocaloid Motion Data 0002\0\0\0\0\0"));
+
+            // 寫入模型名稱
             byte[] modelNameBytes = new byte[20];
             byte[] tempBytes = shiftJisEncoding.GetBytes(modelName);
             Buffer.BlockCopy(tempBytes, 0, modelNameBytes, 0, Math.Min(tempBytes.Length, 20));
             writer.Write(modelNameBytes);
 
+            // 寫入骨骼框架
             writer.Write(frames.Count);
             foreach (var frame in frames.OrderBy(f => f.FrameNumber).ThenBy(f => f.BoneName))
             {
@@ -170,11 +200,37 @@ public class VmdExporter
                 writer.Write(frame.Rotation.w);
                 writer.Write(VmdMotionFrame.DefaultInterpolation);
             }
+
+            // 寫入表情框架 (空)
             writer.Write(0);
+
+            // 寫入攝影機框架 (空)
             writer.Write(0);
+
+            // 寫入燈光框架 (空)
             writer.Write(0);
+
+            // 寫入自陰影資料 (空)
             writer.Write(0);
-            writer.Write(0);
+
+            // 寫入IK框架
+            writer.Write(ikFrames.Count);
+            foreach (var ikFrame in ikFrames.OrderBy(f => f.FrameNumber))
+            {
+                writer.Write(ikFrame.FrameNumber);
+                writer.Write((byte)(ikFrame.Display ? 1 : 0));
+                writer.Write(ikFrame.IkEnables.Count);
+
+                foreach (var ikEnable in ikFrame.IkEnables)
+                {
+                    // IK名稱字段是20字節 (15字節名稱 + 5字節填充)
+                    byte[] ikNameBytes = new byte[20];
+                    tempBytes = shiftJisEncoding.GetBytes(ikEnable.IkName);
+                    Buffer.BlockCopy(tempBytes, 0, ikNameBytes, 0, Math.Min(tempBytes.Length, 15));
+                    writer.Write(ikNameBytes);
+                    writer.Write((byte)(ikEnable.Enable ? 1 : 0));
+                }
+            }
         }
     }
 }
@@ -339,7 +395,7 @@ namespace KKBridge
                 TraverseBones(boneRoot, "", boneReportBuilder);
 
                 string txtFileName = $"{charIndex}_{charName}.txt";
-                // 清理檔案名稱中的非法字元
+                // 清理txt檔案名稱中的非法字元
                 foreach (char c in Path.GetInvalidFileNameChars())
                 {
                     txtFileName = txtFileName.Replace(c.ToString(), "");
@@ -360,8 +416,24 @@ namespace KKBridge
                 var vmdFrames = new List<VmdMotionFrame>();
                 CollectBoneData(boneRoot, vmdFrames);
 
+                // 創建IK框架，將所有IK關閉但顯示網格打開
+                var ikFrames = new List<VmdIkFrame>();
+                var ikFrame = new VmdIkFrame()
+                {
+                    FrameNumber = 0,
+                    Display = true  // 設為true表示顯示網格（show mesh）打開
+                };
+
+                // 添加需要關閉的IK
+                string[] ikNames = { "左腕ＩＫ", "右腕ＩＫ", "左足ＩＫ", "右足ＩＫ", "左つま先ＩＫ", "右つま先ＩＫ" };
+                foreach (string ikName in ikNames)
+                {
+                    ikFrame.IkEnables.Add(new VmdIkEnable(ikName, false)); // 設定為false來關閉IK
+                }
+                ikFrames.Add(ikFrame);
+
                 string vmdFileName = $"{charIndex}_{charName}.vmd";
-                // 再次清理檔名
+                // 清理vmd檔案名稱中的非法字元
                 foreach (char c in Path.GetInvalidFileNameChars())
                 {
                     vmdFileName = vmdFileName.Replace(c.ToString(), "");
@@ -370,7 +442,7 @@ namespace KKBridge
 
                 try
                 {
-                    exporter.Export(vmdFrames, "KoikatsuModel", vmdFilePath);
+                    exporter.Export(vmdFrames, ikFrames, "KoikatsuModel", vmdFilePath);
                     Log.LogInfo($"Successfully exported VMD for character {charIndex} to: {vmdFilePath}");
                 }
                 catch (Exception e)
