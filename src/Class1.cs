@@ -17,36 +17,80 @@ public static class BoneMapper
 {
     private static readonly Dictionary<string, string> KkToMmdMap = new Dictionary<string, string>
     {
+        // 根骨骼和中心
         { "chaF_", "全ての親" },
-        { "cf_j_hips", "センター" },
-        { "cf_j_spine01", "上半身" },
-        { "cf_j_spine02", "上半身2" },
+        // { "cf_j_root", "全ての親" },
+        { "cf_j_hips", "センター" }, // グルーブ?
+
+        // 首/頭
         { "cf_j_neck", "首" },
         { "cf_j_head", "頭" },
+
+        // 軀幹
+        { "cf_j_spine01", "上半身" },
+        { "cf_j_spine02", "上半身2" },
+        // { "cf_j_spine03", "上半身3" },
+        { "cf_j_waist01", "下半身" },
+
+        // 目
+        { "cf_J_hitomi_tx_L", "左目" },
+        { "cf_J_hitomi_tx_R", "右目" },
+
+        // 肩
         { "cf_j_shoulder_L", "左肩" },
         { "cf_j_shoulder_R", "右肩" },
+
+        // 手臂
         { "cf_j_arm00_L", "左腕" },
         { "cf_j_arm00_R", "右腕" },
         { "cf_j_forearm01_L", "左ひじ" },
         { "cf_j_forearm01_R", "右ひじ" },
         { "cf_j_hand_L", "左手首" },
         { "cf_j_hand_R", "右手首" },
+
+        // 足
         { "cf_j_thigh00_L", "左足" },
         { "cf_j_thigh00_R", "右足" },
         { "cf_j_leg01_L", "左ひざ" },
         { "cf_j_leg01_R", "右ひざ" },
         { "cf_j_leg03_L", "左足首" },
         { "cf_j_leg03_R", "右足首" },
-        { "cf_j_thumb01_L", "左親指１" }, { "cf_j_thumb02_L", "左親指２" },
-        { "cf_j_index01_L", "左人指１" }, { "cf_j_index02_L", "左人指２" }, { "cf_j_index03_L", "左人指３" },
-        { "cf_j_middle01_L", "左中指１" }, { "cf_j_middle02_L", "左中指２" }, { "cf_j_middle03_L", "左中指３" },
-        { "cf_j_ring01_L", "左薬指１" }, { "cf_j_ring02_L", "左薬指２" }, { "cf_j_ring03_L", "左薬指３" },
-        { "cf_j_little01_L", "左小指１" }, { "cf_j_little02_L", "左小指２" }, { "cf_j_little03_L", "左小指３" },
-        { "cf_j_thumb01_R", "右親指１" }, { "cf_j_thumb02_R", "右親指２" },
-        { "cf_j_index01_R", "右人指１" }, { "cf_j_index02_R", "右人指２" }, { "cf_j_index03_R", "右人指３" },
-        { "cf_j_middle01_R", "右中指１" }, { "cf_j_middle02_R", "右中指２" }, { "cf_j_middle03_R", "右中指３" },
-        { "cf_j_ring01_R", "右薬指１" }, { "cf_j_ring02_R", "右薬指２" }, { "cf_j_ring03_R", "右薬指３" },
-        { "cf_j_little01_R", "右小指１" }, { "cf_j_little02_R", "右小指２" }, { "cf_j_little03_R", "右小指３" },
+        { "cf_j_toes_L", "左足先EX" },
+        { "cf_j_toes_R", "右足先EX" },
+
+        // 左手手指
+        { "cf_j_thumb01_L", "左親指０" },
+        { "cf_j_thumb02_L", "左親指１" },
+        { "cf_j_thumb03_L", "左親指２" },
+        { "cf_j_index01_L", "左人指１" },
+        { "cf_j_index02_L", "左人指２" },
+        { "cf_j_index03_L", "左人指３" },
+        { "cf_j_middle01_L", "左中指１" },
+        { "cf_j_middle02_L", "左中指２" },
+        { "cf_j_middle03_L", "左中指３" },
+        { "cf_j_ring01_L", "左薬指１" },
+        { "cf_j_ring02_L", "左薬指２" },
+        { "cf_j_ring03_L", "左薬指３" },
+        { "cf_j_little01_L", "左小指１" },
+        { "cf_j_little02_L", "左小指２" },
+        { "cf_j_little03_L", "左小指３" },
+
+        // 右手手指
+        { "cf_j_thumb01_R", "右親指０" },
+        { "cf_j_thumb02_R", "右親指１" },
+        { "cf_j_thumb03_R", "右親指２" },
+        { "cf_j_index01_R", "右人指１" },
+        { "cf_j_index02_R", "右人指２" },
+        { "cf_j_index03_R", "右人指３" },
+        { "cf_j_middle01_R", "右中指１" },
+        { "cf_j_middle02_R", "右中指２" },
+        { "cf_j_middle03_R", "右中指３" },
+        { "cf_j_ring01_R", "右薬指１" },
+        { "cf_j_ring02_R", "右薬指２" },
+        { "cf_j_ring03_R", "右薬指３" },
+        { "cf_j_little01_R", "右小指１" },
+        { "cf_j_little02_R", "右小指２" },
+        { "cf_j_little03_R", "右小指３" },
     };
 
     public static bool TryGetMmdBoneName(string kkBoneName, out string mmdBoneName)
