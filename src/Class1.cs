@@ -1,48 +1,236 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
 using Studio;
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using UnityEngine;
 
-// 將所有程式碼包裹在 KKBridge 這個命名空間中
+#region VMD 工具類別 (VMD Helper Classes)
+
+/// <summary>
+/// 骨骼名稱映射器，將 Koikatsu 的骨骼名稱翻譯為 MMD 標準名稱
+/// </summary>
+public static class BoneMapper
+{
+    private static readonly Dictionary<string, string> KkToMmdMap = new Dictionary<string, string>
+    {
+        { "", "全ての親" },
+        { "cf_j_hips", "センター" },
+        { "cf_j_spine01", "上半身" },
+        { "cf_j_spine02", "上半身2" },
+        { "cf_j_neck", "首" },
+        { "cf_j_head", "頭" },
+        { "cf_j_shoulder_L", "左肩" },
+        { "cf_j_arm00_L", "左腕" },
+        { "cf_j_forearm01_L", "左ひじ" },
+        { "cf_j_hand_L", "左手首" },
+        { "cf_j_shoulder_R", "右肩" },
+        { "cf_j_arm00_R", "右腕" },
+        { "cf_j_forearm01_R", "右ひじ" },
+        { "cf_j_hand_R", "右手首" },
+        { "cf_j_thigh00_L", "左足" },
+        { "cf_j_leg01_L", "左ひざ" },
+        { "cf_j_leg03_L", "左足首" },
+        { "cf_j_thigh00_R", "右足" },
+        { "cf_j_leg01_R", "右ひざ" },
+        { "cf_j_leg03_R", "右足首" },
+        { "cf_j_thumb01_L", "左親指１" }, { "cf_j_thumb02_L", "左親指２" },
+        { "cf_j_index01_L", "左人指１" }, { "cf_j_index02_L", "左人指２" }, { "cf_j_index03_L", "左人指３" },
+        { "cf_j_middle01_L", "左中指１" }, { "cf_j_middle02_L", "左中指２" }, { "cf_j_middle03_L", "左中指３" },
+        { "cf_j_ring01_L", "左薬指１" }, { "cf_j_ring02_L", "左薬指２" }, { "cf_j_ring03_L", "左薬指３" },
+        { "cf_j_little01_L", "左小指１" }, { "cf_j_little02_L", "左小指２" }, { "cf_j_little03_L", "左小指３" },
+        { "cf_j_thumb01_R", "右親指１" }, { "cf_j_thumb02_R", "右親指２" },
+        { "cf_j_index01_R", "右人指１" }, { "cf_j_index02_R", "右人指２" }, { "cf_j_index03_R", "右人指３" },
+        { "cf_j_middle01_R", "右中指１" }, { "cf_j_middle02_R", "右中指２" }, { "cf_j_middle03_R", "右中指３" },
+        { "cf_j_ring01_R", "右薬指１" }, { "cf_j_ring02_R", "右薬指２" }, { "cf_j_ring03_R", "右薬指３" },
+        { "cf_j_little01_R", "右小指１" }, { "cf_j_little02_R", "右小指２" }, { "cf_j_little03_R", "右小指３" },
+    };
+
+    public static bool TryGetMmdBoneName(string kkBoneName, out string mmdBoneName)
+    {
+        return KkToMmdMap.TryGetValue(kkBoneName, out mmdBoneName);
+    }
+}
+
+public class VmdMotionFrame
+{
+    public string BoneName { get; set; }
+    public uint FrameNumber { get; set; }
+    public Vector3 Position { get; set; }
+    public Quaternion Rotation { get; set; }
+    public static readonly byte[] DefaultInterpolation = {
+        20,  20,   0,   0, 107, 107, 107, 107, 20,  20,  20,  20, 107, 107, 107, 107,
+        20,  20,  20, 107, 107, 107, 107,  20, 20,  20,  20, 107, 107, 107, 107,   0,
+        20,  20, 107, 107, 107, 107,  20,  20, 20,  20, 107, 107, 107, 107,   0,   0,
+        20, 107, 107, 107, 107,  20,  20,  20, 20, 107, 107, 107, 107,   0,   0,   0,
+    };
+
+    public VmdMotionFrame(string boneName)
+    {
+        BoneName = boneName;
+        FrameNumber = 0;
+        Position = Vector3.zero;
+        Rotation = Quaternion.identity;
+    }
+}
+
+public class VmdExporter
+{
+    public void Export(List<VmdMotionFrame> frames, string modelName, string filePath)
+    {
+        var shiftJisEncoding = Encoding.GetEncoding("Shift_JIS");
+
+        using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+        using (var writer = new BinaryWriter(fs))
+        {
+            writer.Write(shiftJisEncoding.GetBytes("Vocaloid Motion Data 0002\0\0\0\0\0"));
+            byte[] modelNameBytes = new byte[20];
+            byte[] tempBytes = shiftJisEncoding.GetBytes(modelName);
+            Buffer.BlockCopy(tempBytes, 0, modelNameBytes, 0, Math.Min(tempBytes.Length, 20));
+            writer.Write(modelNameBytes);
+
+            writer.Write(frames.Count);
+            foreach (var frame in frames.OrderBy(f => f.FrameNumber).ThenBy(f => f.BoneName))
+            {
+                byte[] nameBytes = new byte[15];
+                tempBytes = shiftJisEncoding.GetBytes(frame.BoneName);
+                Buffer.BlockCopy(tempBytes, 0, nameBytes, 0, Math.Min(tempBytes.Length, 15));
+                writer.Write(nameBytes);
+                writer.Write(frame.FrameNumber);
+                writer.Write(frame.Position.x);
+                writer.Write(frame.Position.y);
+                writer.Write(frame.Position.z);
+                writer.Write(frame.Rotation.x);
+                writer.Write(frame.Rotation.y);
+                writer.Write(frame.Rotation.z);
+                writer.Write(frame.Rotation.w);
+                writer.Write(VmdMotionFrame.DefaultInterpolation);
+            }
+            writer.Write(0);
+            writer.Write(0);
+            writer.Write(0);
+            writer.Write(0);
+            writer.Write(0);
+        }
+    }
+}
+#endregion
+
 namespace KKBridge
 {
-    // BepInEx 插件的標頭資訊
-    [BepInPlugin(
-        "com.rint.kkbridge",     // 插件的唯一 GUID
-        "KKBridge Plugin",       // 插件名稱
-        "1.0.0"                  // 插件版本
-    )]
+    [BepInPlugin("com.rint.kkbridge", "KKBridge Plugin", "1.0.0")]
     public class KKBridgePlugin : BaseUnityPlugin
     {
-        // 用於在控制台輸出日誌的實例
         internal static ManualLogSource Log;
 
-        // Awake() 是插件的入口，當插件被載入時會被 BepInEx 自動呼叫
+        // 要過濾掉的骨骼名稱關鍵字
+        private static readonly List<string> IgnoredBoneNameParts = new List<string>
+        {
+            "joint",
+            "sode",
+            "hair",
+            "_sk_",
+            "k_f_",
+            "slot",
+            "Vagina",
+            "siri",
+            "toes",
+            "Eye",
+            "eye",
+            "Ear",
+            "bust",
+            "mouth",
+        };
+
         private void Awake()
         {
             Log = base.Logger;
-            Log.LogInfo("KKBridge Plugin loaded successfully! Press F7 to list characters and bones.");
+            Log.LogInfo("KKBridge Plugin loaded! Press F7 to export all characters' VMD & bone info.");
         }
 
-        // Update() 方法會在遊戲的每一影格被呼叫
         private void Update()
         {
-            // 偵測玩家是否按下了 F7 鍵
             if (Input.GetKeyDown(KeyCode.F7))
             {
-                Log.LogInfo("F7 key pressed, attempting to list characters and bones...");
-                ListCharactersAndBones();
+                // ----- 打印當前選中的骨骼資訊 -----
+                Log.LogInfo("F7 key pressed. Checking for selected bone...");
+                PrintSelectedBoneInfo();
+
+                // ----- 您原有的導出所有資料的功能 -----
+                Log.LogInfo("Now, exporting all data...");
+                ExportAllData();
             }
         }
 
         /// <summary>
-        /// 主要功能函式：尋找並列出所有角色的骨骼
+        /// 獲取並打印當前在工作室中選中的骨骼資訊
         /// </summary>
-        private void ListCharactersAndBones()
+        private void PrintSelectedBoneInfo()
         {
-            // 1. 獲取工作室的單例實例，這是存取場景中所有物件的入口
+            // 透過 Singleton 獲取 GuideObject 管理器實例
+            var guideObjectManager = Singleton<GuideObjectManager>.Instance;
+            if (guideObjectManager == null)
+            {
+                Log.LogWarning("GuideObjectManager not found. Cannot determine selected bone.");
+                return;
+            }
+
+            // 獲取當前選中的 GuideObject
+            GuideObject selectedGuideObject = guideObjectManager.selectObject;
+
+            // 檢查是否有選中的物件，並且該物件有控制一個 Transform (骨骼)
+            if (selectedGuideObject != null && selectedGuideObject.transformTarget != null)
+            {
+                Transform selectedBone = selectedGuideObject.transformTarget;
+
+                // 調用輔助方法來打印詳細資訊
+                PrintBoneInfo(selectedBone);
+            }
+            else
+            {
+                Log.LogInfo("No bone is currently selected in the studio.");
+            }
+        }
+
+        /// <summary>
+        /// 將單一骨骼的詳細資訊打印到控制台
+        /// </summary>
+        private void PrintBoneInfo(Transform bone)
+        {
+            if (bone == null) return;
+
+            string displayName;
+            // 嘗試獲取映射後的 MMD 名稱以提供更多上下文
+            if (BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName))
+            {
+                displayName = $"{bone.name} [{mmdBoneName}]";
+            }
+            else
+            {
+                displayName = bone.name;
+            }
+
+            // 格式化輸出字串
+            string boneInfo = $"\n" +
+                              $"-------------------- SELECTED BONE INFO --------------------\n" +
+                              $"Name: {displayName}\n" +
+                              $"Local Position:  P{bone.localPosition:F4}\n" +
+                              $"Local Rotation:  R{bone.localEulerAngles:F4}\n" +
+                              $"Local Scale:     S{bone.localScale:F4}\n" +
+                              $"------------------------------------------------------------";
+
+            Log.LogInfo(boneInfo);
+        }
+
+
+        /// <summary>
+        /// 【整合功能】按下F7後執行所有導出操作
+        /// </summary>
+        private void ExportAllData()
+        {
             var studioInstance = Singleton<Studio.Studio>.Instance;
             if (studioInstance == null || studioInstance.dicObjectCtrl == null)
             {
@@ -50,87 +238,162 @@ namespace KKBridge
                 return;
             }
 
-            // 2. 從所有物件中，篩選出類型為「角色」(OCIChar) 的物件
-            var characters = studioInstance.dicObjectCtrl.Values.OfType<OCIChar>();
+            var characters = studioInstance.dicObjectCtrl.Values.OfType<OCIChar>().ToList();
 
             if (!characters.Any())
             {
-                Log.LogWarning("No characters found in the scene.");
+                Log.LogWarning("No characters found in the scene to export.");
                 return;
             }
 
-            Log.LogInfo($"Found {characters.Count()} character(s) in the scene.");
+            Log.LogInfo($"Found {characters.Count} character(s). Starting export process...");
 
-            // 3. 遍歷找到的每一個角色
+            // --- 準備VMD導出 ---
+            var exporter = new VmdExporter();
+            string outputDirectory = "C:\\Users\\user\\Desktop\\out";
+
+            try
+            {
+                Directory.CreateDirectory(outputDirectory);
+            }
+            catch (Exception e)
+            {
+                Log.LogError($"Could not create output directory '{outputDirectory}'. Error: {e.Message}");
+                return;
+            }
+
+            int charIndex = 1;
+
+            // --- 遍歷所有角色，為每個角色分別導出 VMD 和 TXT ---
             foreach (var ociChar in characters)
             {
                 ChaControl chaCtrl = ociChar.charInfo;
                 if (chaCtrl == null) continue;
 
-                Log.LogInfo($"========== Character: {chaCtrl.chaFile.parameter.fullname} ==========");
+                string charName = chaCtrl.chaFile.parameter.fullname;
+                Log.LogInfo($"Processing Character {charIndex}: {charName}");
 
-                // 4. 使用能深入搜尋的 FindDeepChild 函式來找到角色骨架的根物件
                 Transform boneRoot = FindDeepChild(chaCtrl.transform, "p_cf_body_bone");
-
                 if (boneRoot == null)
                 {
-                    Log.LogWarning($"Could not find bone root 'p_cf_body_bone' for character {chaCtrl.chaFile.parameter.fullname}.");
+                    Log.LogWarning($"Could not find bone root for character {charName}. Skipping.");
+                    charIndex++;
                     continue;
                 }
 
-                // 5. 使用遞迴方法來遍歷並印出所有骨骼
-                var boneListBuilder = new StringBuilder();
-                TraverseBones(boneRoot, "", boneListBuilder);
-                Log.LogInfo(boneListBuilder.ToString());
+                // --- 1. 導出骨骼資訊到獨立的 TXT 檔案 ---
+                var boneReportBuilder = new StringBuilder();
+                TraverseBones(boneRoot, "", boneReportBuilder);
+
+                string txtFileName = $"{charIndex}_{charName}.txt";
+                // 清理檔案名稱中的非法字元
+                foreach (char c in Path.GetInvalidFileNameChars())
+                {
+                    txtFileName = txtFileName.Replace(c.ToString(), "");
+                }
+                string txtFilePath = Path.Combine(outputDirectory, txtFileName);
+
+                try
+                {
+                    File.WriteAllText(txtFilePath, boneReportBuilder.ToString(), Encoding.UTF8);
+                    Log.LogInfo($"Successfully wrote bone info to: {txtFilePath}");
+                }
+                catch (Exception e)
+                {
+                    Log.LogError($"Failed to write bone info file for {charName}: {e.Message}");
+                }
+
+                // --- 2. 導出 VMD 檔案 ---
+                var vmdFrames = new List<VmdMotionFrame>();
+                CollectBoneData(boneRoot, vmdFrames);
+
+                string vmdFileName = $"{charIndex}_{charName}.vmd";
+                // 再次清理檔名
+                foreach (char c in Path.GetInvalidFileNameChars())
+                {
+                    vmdFileName = vmdFileName.Replace(c.ToString(), "");
+                }
+                string vmdFilePath = Path.Combine(outputDirectory, vmdFileName);
+
+                try
+                {
+                    exporter.Export(vmdFrames, "KoikatsuModel", vmdFilePath);
+                    Log.LogInfo($"Successfully exported VMD for character {charIndex} to: {vmdFilePath}");
+                }
+                catch (Exception e)
+                {
+                    Log.LogError($"Failed to export VMD for character {charIndex}: {e.Message}");
+                }
+
+                charIndex++;
+            }
+
+            Log.LogInfo("All export tasks finished.");
+        }
+
+        private void CollectBoneData(Transform bone, List<VmdMotionFrame> frameList)
+        {
+            if (bone == null) return;
+
+            // 如果骨骼名稱包含任何被忽略的關鍵字，則跳過此骨骼及其所有子骨骼
+            if (IgnoredBoneNameParts.Any(ignoredPart => bone.name.Contains(ignoredPart)))
+            {
+                return;
+            }
+
+            if (BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName))
+            {
+                var frame = new VmdMotionFrame(mmdBoneName);
+                Vector3 localPos = bone.localPosition;
+                Quaternion localRot = bone.localRotation;
+                // const float scaleFactor = 12.5f;
+                // frame.Position = new Vector3(-localPos.x * scaleFactor, localPos.y * scaleFactor, -localPos.z * scaleFactor);
+                frame.Position = new Vector3(0, 0, 0);
+                frame.Rotation = new Quaternion(-localRot.x, localRot.y, -localRot.z, localRot.w);
+                frameList.Add(frame);
+            }
+            foreach (Transform child in bone)
+            {
+                CollectBoneData(child, frameList);
             }
         }
 
         /// <summary>
-        /// 遞迴函式，用於遍歷一個 Transform 物件和它所有的子物件，並建立樹狀結構字串
+        /// 遞迴函式，同時顯示原始和映射後的骨骼名稱。
         /// </summary>
-        /// <param name="bone">當前要處理的骨骼 Transform</param>
-        /// <param name="indent">用於視覺化層級的縮排字串</param>
-        /// <param name="builder">用於高效建立完整列表的 StringBuilder</param>
         private void TraverseBones(Transform bone, string indent, StringBuilder builder)
         {
             if (bone == null) return;
 
-            // 在骨骼名稱後方，附加本地座標、旋轉和縮放的資訊
-            string boneInfo = $"{indent}{bone.name} | P: {bone.localPosition:F3} | R: {bone.localEulerAngles:F3} | S: {bone.localScale:F3}";
+            // 如果骨骼名稱包含任何被忽略的關鍵字，則跳過此骨骼及其所有子骨骼
+            if (IgnoredBoneNameParts.Any(ignoredPart => bone.name.Contains(ignoredPart)))
+            {
+                return;
+            }
+
+            // 嘗試獲取映射後的 MMD 名稱
+            BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName);
+            string displayName = string.IsNullOrEmpty(mmdBoneName)
+                ? bone.name // 如果沒有映射，只顯示原始名稱
+                : $"{bone.name} [{mmdBoneName}]"; // 如果有，顯示 "原始名 -> MMD名"
+
+            string boneInfo = $"{indent}{displayName}                    P{bone.localPosition:F3} R{bone.localEulerAngles:F3} S{bone.localScale:F3}";
             builder.AppendLine(boneInfo);
 
-            // 遍歷當前骨骼的所有子骨骼，並為每一個子骨骼呼叫自己，同時增加縮排
             foreach (Transform child in bone)
             {
                 TraverseBones(child, indent + "  ", builder);
             }
         }
 
-        /// <summary>
-        /// 輔助函式：遞迴搜尋一個父物件下的所有層級，直到找到指定名稱的子物件
-        /// </summary>
-        /// <param name="parent">要開始搜尋的父物件</param>
-        /// <param name="targetName">要尋找的子物件名稱</param>
-        /// <returns>找到的 Transform 物件，如果沒找到則返回 null</returns>
         public static Transform FindDeepChild(Transform parent, string targetName)
         {
-            // 檢查當前物件的所有直接子物件
             foreach (Transform child in parent)
             {
-                // 如果找到目標，立即返回
-                if (child.name == targetName)
-                {
-                    return child;
-                }
-
-                // 如果沒找到，則對這個子物件進行遞迴搜尋
+                if (child.name == targetName) return child;
                 Transform result = FindDeepChild(child, targetName);
-                if (result != null)
-                {
-                    return result; // 如果在更深層級找到了，就將結果一路傳回去
-                }
+                if (result != null) return result;
             }
-            // 如果遍歷完所有子物件都沒找到，返回 null
             return null;
         }
     }
