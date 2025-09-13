@@ -126,23 +126,11 @@ namespace KKBridge
     {
         internal static ManualLogSource Log;
 
-        // 要過濾掉的骨骼名稱關鍵字
-        private static readonly List<string> IgnoredBoneNameParts = new List<string>
+        // 白名單: 只導出名稱包含以下任何關鍵字的骨骼
+        private static readonly List<string> RequiredBoneNameParts = new List<string>
         {
-            "joint",
-            "sode",
-            "hair",
-            "_sk_",
-            "k_f_",
-            "slot",
-            "Vagina",
-            "siri",
-            "toes",
-            "Eye",
-            "eye",
-            "Ear",
-            "bust",
-            "mouth",
+            "_j_",
+            "_J_",
         };
 
         private void Awake()
@@ -185,8 +173,6 @@ namespace KKBridge
             if (selectedGuideObject != null && selectedGuideObject.transformTarget != null)
             {
                 Transform selectedBone = selectedGuideObject.transformTarget;
-
-                // 調用輔助方法來打印詳細資訊
                 PrintBoneInfo(selectedBone);
             }
             else
@@ -203,7 +189,6 @@ namespace KKBridge
             if (bone == null) return;
 
             string displayName;
-            // 嘗試獲取映射後的 MMD 名稱以提供更多上下文
             if (BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName))
             {
                 displayName = $"{bone.name} [{mmdBoneName}]";
@@ -213,7 +198,6 @@ namespace KKBridge
                 displayName = bone.name;
             }
 
-            // 格式化輸出字串
             string boneInfo = $"\n" +
                               $"-------------------- SELECTED BONE INFO --------------------\n" +
                               $"Name: {displayName}\n" +
@@ -224,7 +208,6 @@ namespace KKBridge
 
             Log.LogInfo(boneInfo);
         }
-
 
         /// <summary>
         /// 【整合功能】按下F7後執行所有導出操作
@@ -331,17 +314,18 @@ namespace KKBridge
             Log.LogInfo("All export tasks finished.");
         }
 
+        /// <summary>
+        /// 遞迴收集符合白名單條件的骨骼數據用於VMD導出
+        /// </summary>
         private void CollectBoneData(Transform bone, List<VmdMotionFrame> frameList)
         {
             if (bone == null) return;
 
-            // 如果骨骼名稱包含任何被忽略的關鍵字，則跳過此骨骼及其所有子骨骼
-            if (IgnoredBoneNameParts.Any(ignoredPart => bone.name.Contains(ignoredPart)))
-            {
-                return;
-            }
+            // 檢查當前骨骼是否符合白名單條件
+            bool shouldExport = RequiredBoneNameParts.Any(requiredPart => bone.name.Contains(requiredPart));
 
-            if (BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName))
+            // 如果符合白名單，並且可以在 BoneMapper 中找到對應的 MMD 名稱，則導出其數據
+            if (shouldExport && BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName))
             {
                 var frame = new VmdMotionFrame(mmdBoneName);
                 Vector3 localPos = bone.localPosition;
@@ -352,6 +336,8 @@ namespace KKBridge
                 frame.Rotation = new Quaternion(-localRot.x, localRot.y, -localRot.z, localRot.w);
                 frameList.Add(frame);
             }
+
+            // 無論當前骨骼是否被導出，都繼續遞迴處理其所有子骨骼
             foreach (Transform child in bone)
             {
                 CollectBoneData(child, frameList);
@@ -359,27 +345,28 @@ namespace KKBridge
         }
 
         /// <summary>
-        /// 遞迴函式，同時顯示原始和映射後的骨骼名稱。
+        /// 遞迴函式，遍歷骨骼並建立報告，只包含白名單內的骨骼
         /// </summary>
         private void TraverseBones(Transform bone, string indent, StringBuilder builder)
         {
             if (bone == null) return;
 
-            // 如果骨骼名稱包含任何被忽略的關鍵字，則跳過此骨骼及其所有子骨骼
-            if (IgnoredBoneNameParts.Any(ignoredPart => bone.name.Contains(ignoredPart)))
+            // 檢查當前骨骼是否符合白名單條件
+            bool shouldIncludeInReport = RequiredBoneNameParts.Any(requiredPart => bone.name.Contains(requiredPart));
+
+            // 如果符合白名單，則將其資訊添加到報告中
+            if (shouldIncludeInReport)
             {
-                return;
+                BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName);
+                string displayName = string.IsNullOrEmpty(mmdBoneName)
+                    ? bone.name
+                    : $"{bone.name} [{mmdBoneName}]";
+
+                string boneInfo = $"{indent}{displayName}                    P{bone.localPosition:F3} R{bone.localEulerAngles:F3} S{bone.localScale:F3}";
+                builder.AppendLine(boneInfo);
             }
 
-            // 嘗試獲取映射後的 MMD 名稱
-            BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName);
-            string displayName = string.IsNullOrEmpty(mmdBoneName)
-                ? bone.name // 如果沒有映射，只顯示原始名稱
-                : $"{bone.name} [{mmdBoneName}]"; // 如果有，顯示 "原始名 -> MMD名"
-
-            string boneInfo = $"{indent}{displayName}                    P{bone.localPosition:F3} R{bone.localEulerAngles:F3} S{bone.localScale:F3}";
-            builder.AppendLine(boneInfo);
-
+            // 無論當前骨骼是否被包含在報告中，都繼續遞迴處理其所有子骨骼
             foreach (Transform child in bone)
             {
                 TraverseBones(child, indent + "  ", builder);
