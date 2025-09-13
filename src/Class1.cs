@@ -1,5 +1,6 @@
 ﻿using BepInEx;
 using BepInEx.Logging;
+using RootMotion.FinalIK;
 using Studio;
 using System;
 using System.Collections.Generic;
@@ -272,6 +273,28 @@ namespace KKBridge
             "chaF_",
         };
 
+        // 用於IK部位索引的字典 (參考自CharaPoseController.cs)
+        private static readonly Dictionary<FullBodyBipedEffector, int> _effectorToIndex = new Dictionary<FullBodyBipedEffector, int>
+        {
+            { FullBodyBipedEffector.Body, 0 },
+            { FullBodyBipedEffector.LeftShoulder, 1 },
+            { FullBodyBipedEffector.LeftHand, 3 },
+            { FullBodyBipedEffector.RightShoulder, 4 },
+            { FullBodyBipedEffector.RightHand, 6 },
+            { FullBodyBipedEffector.LeftThigh, 7 },
+            { FullBodyBipedEffector.LeftFoot, 9 },
+            { FullBodyBipedEffector.RightThigh, 10 },
+            { FullBodyBipedEffector.RightFoot, 12 },
+        };
+
+        private static readonly Dictionary<FullBodyBipedChain, int> _chainToIndex = new Dictionary<FullBodyBipedChain, int>
+        {
+            { FullBodyBipedChain.LeftArm, 2 },
+            { FullBodyBipedChain.RightArm, 5 },
+            { FullBodyBipedChain.LeftLeg, 8 },
+            { FullBodyBipedChain.RightLeg, 11 },
+        };
+
         private void Awake()
         {
             Log = base.Logger;
@@ -286,11 +309,54 @@ namespace KKBridge
                 Log.LogInfo("F7 key pressed. Checking for selected bone...");
                 PrintSelectedBoneInfo();
 
-                // ----- 您原有的導出所有資料的功能 -----
+                // ----- 導出所有資料 -----
                 Log.LogInfo("Now, exporting all data...");
                 ExportAllData();
             }
         }
+
+        // ******** NEW/MODIFIED CODE START ********
+        /// <summary>
+        /// 輔助方法：檢查指定的FK部位UI上的「燈」是否啟用。
+        /// 這個方法會讀取角色存檔中的真實狀態，獨立於FK總開關。
+        /// </summary>
+        /// <param name="ociChar">角色物件</param>
+        /// <param name="partGroup">要查詢的部位 (使用OIBoneInfo.BoneGroup列舉)</param>
+        private bool IsFkPartActive(OCIChar ociChar, OIBoneInfo.BoneGroup partGroup)
+        {
+            if (ociChar == null) return false;
+
+            // 1. 找到部位在 FKCtrl.parts 陣列中的索引
+            int index = Array.FindIndex(FKCtrl.parts, part => part == partGroup);
+
+            // 2. 如果找到了索引，就用它去 oiCharInfo.activeFK 陣列中取值
+            if (index != -1 && index < ociChar.oiCharInfo.activeFK.Length)
+            {
+                // oiCharInfo.activeFK 是儲存UI上每個「燈」亮暗狀態的真實布林陣列
+                return ociChar.oiCharInfo.activeFK[index];
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 輔助方法：檢查指定的IK鏈（手臂/腿）是否啟用
+        /// </summary>
+        private bool IsIkChainActive(OCIChar ociChar, FullBodyBipedChain part)
+        {
+            if (ociChar == null || !ociChar.oiCharInfo.enableIK)
+                return false;
+
+            if (_chainToIndex.TryGetValue(part, out int index))
+            {
+                if (index < ociChar.listIKTarget.Count)
+                {
+                    return ociChar.listIKTarget[index].active;
+                }
+            }
+            return false;
+        }
+        // ******** NEW/MODIFIED CODE END ********
 
         /// <summary>
         /// 獲取並打印當前在工作室中選中的骨骼資訊
@@ -435,7 +501,7 @@ namespace KKBridge
 
                 // --- 2. 導出 VMD 檔案 ---
                 var vmdFrames = new List<VmdMotionFrame>();
-                CollectBoneData(boneRoot, vmdFrames);
+                CollectBoneData(ociChar, boneRoot, vmdFrames);
 
                 // 創建IK框架，將所有IK關閉但顯示網格打開
                 var ikFrames = new List<VmdIkFrame>();
@@ -480,7 +546,7 @@ namespace KKBridge
         /// <summary>
         /// 遞迴收集符合白名單條件的骨骼數據用於VMD導出
         /// </summary>
-        private void CollectBoneData(Transform bone, List<VmdMotionFrame> frameList)
+        private void CollectBoneData(OCIChar ociChar, Transform bone, List<VmdMotionFrame> frameList)
         {
             if (bone == null) return;
 
@@ -500,21 +566,47 @@ namespace KKBridge
                 Quaternion initialRot = mapInfo.InitialRotation;
                 Quaternion relativeRot = Quaternion.Inverse(initialRot) * localRot;
 
-                // 根據骨骼名稱應用 T-Pose 到 A-Pose 的旋轉校正
-                switch (mapInfo.MmdName)
+                bool shouldApplyAPoseCorrectionL =
+                    (!ociChar.oiCharInfo.enableIK) || // IK總開關是關的 -> 需要校正
+                    (ociChar.oiCharInfo.enableIK && !IsIkChainActive(ociChar, FullBodyBipedChain.LeftArm)); // IK總開關是開的但左手IK是關的 -> 需要校正
+                bool shouldApplyAPoseCorrectionR =
+                    (!ociChar.oiCharInfo.enableIK) || // IK總開關是關的 -> 需要校正
+                    (ociChar.oiCharInfo.enableIK && !IsIkChainActive(ociChar, FullBodyBipedChain.RightArm)); // IK總開關是關的但右手IK是關的 -> 需要校正
+
+                // Log.LogInfo("ociChar.oiCharInfo.enableFK:" + ociChar.oiCharInfo.enableFK);
+                // Log.LogInfo("ociChar.oiCharInfo.enableIK:" + ociChar.oiCharInfo.enableIK);
+                // Log.LogInfo("IsFkPartActive(ociChar, OIBoneInfo.BoneGroup.Body):" + IsFkPartActive(ociChar, OIBoneInfo.BoneGroup.Body));
+                // Log.LogInfo("IsIkChainActive(ociChar, FullBodyBipedChain.LeftArm):" + IsIkChainActive(ociChar, FullBodyBipedChain.LeftArm));
+                // Log.LogInfo("IsIkChainActive(ociChar, FullBodyBipedChain.RightArm):" + IsIkChainActive(ociChar, FullBodyBipedChain.RightArm));
+                // Log.LogInfo("---");
+                // Log.LogInfo("shouldApplyAPoseCorrection:" + shouldApplyAPoseCorrectionL);
+                // Log.LogInfo("shouldApplyAPoseCorrection:" + shouldApplyAPoseCorrectionR);
+
+                if (shouldApplyAPoseCorrectionL)
                 {
-                    case "左肩":
-                        relativeRot *= Quaternion.Euler(0, 0, -14.0f);
-                        break;
-                    case "右肩":
-                        relativeRot *= Quaternion.Euler(0, 0, 14.0f);
-                        break;
-                    case "左腕":
-                        relativeRot *= Quaternion.Euler(0, 0, -21.0f);
-                        break;
-                    case "右腕":
-                        relativeRot *= Quaternion.Euler(0, 0, 21.0f);
-                        break;
+                    // 根據骨骼名稱應用 T-Pose 到 A-Pose 的旋轉校正
+                    switch (mapInfo.MmdName)
+                    {
+                        case "左肩":
+                            relativeRot *= Quaternion.Euler(0, 0, -14.0f);
+                            break;
+                        case "左腕":
+                            relativeRot *= Quaternion.Euler(0, 0, -21.0f);
+                            break;
+                    }
+                }
+                if (shouldApplyAPoseCorrectionR)
+                {
+                    // 根據骨骼名稱應用 T-Pose 到 A-Pose 的旋轉校正
+                    switch (mapInfo.MmdName)
+                    {
+                        case "右肩":
+                            relativeRot *= Quaternion.Euler(0, 0, 14.0f);
+                            break;
+                        case "右腕":
+                            relativeRot *= Quaternion.Euler(0, 0, 21.0f);
+                            break;
+                    }
                 }
 
                 // const float scaleFactor = 12.5f;
@@ -528,7 +620,7 @@ namespace KKBridge
             // 無論當前骨骼是否被導出，都繼續遞迴處理其所有子骨骼
             foreach (Transform child in bone)
             {
-                CollectBoneData(child, frameList);
+                CollectBoneData(ociChar, child, frameList);
             }
         }
 
