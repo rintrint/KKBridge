@@ -17,7 +17,7 @@ public static class BoneMapper
 {
     private static readonly Dictionary<string, string> KkToMmdMap = new Dictionary<string, string>
     {
-        { "", "全ての親" },
+        { "chaF_", "全ての親" },
         { "cf_j_hips", "センター" },
         { "cf_j_spine01", "上半身" },
         { "cf_j_spine02", "上半身2" },
@@ -51,7 +51,24 @@ public static class BoneMapper
 
     public static bool TryGetMmdBoneName(string kkBoneName, out string mmdBoneName)
     {
-        return KkToMmdMap.TryGetValue(kkBoneName, out mmdBoneName);
+        // 先檢查字典中是否有完全匹配
+        if (KkToMmdMap.TryGetValue(kkBoneName, out mmdBoneName))
+        {
+            return true;
+        }
+
+        // 再檢查字典中是否有前綴匹配
+        foreach (var kvp in KkToMmdMap)
+        {
+            if (!string.IsNullOrEmpty(kvp.Key) && kkBoneName.StartsWith(kvp.Key))
+            {
+                mmdBoneName = kvp.Value;
+                return true;
+            }
+        }
+
+        mmdBoneName = null;
+        return false;
     }
 }
 
@@ -131,6 +148,7 @@ namespace KKBridge
         {
             "_j_",
             "_J_",
+            "chaF_",
         };
 
         private void Awake()
@@ -241,11 +259,11 @@ namespace KKBridge
                 DirectoryInfo di = new DirectoryInfo(outputDirectory);
                 foreach (FileInfo file in di.GetFiles())
                 {
-                    file.Delete(); 
+                    file.Delete();
                 }
                 foreach (DirectoryInfo dir in di.GetDirectories())
                 {
-                    dir.Delete(true); 
+                    dir.Delete(true);
                 }
             }
             catch (Exception e)
@@ -264,7 +282,7 @@ namespace KKBridge
                 string charName = chaCtrl.chaFile.parameter.fullname;
                 Log.LogInfo($"Processing Character {charIndex}: {charName}");
 
-                Transform boneRoot = FindDeepChild(chaCtrl.transform, "p_cf_body_bone");
+                Transform boneRoot = chaCtrl.transform;
                 if (boneRoot == null)
                 {
                     Log.LogWarning($"Could not find bone root for character {charName}. Skipping.");
@@ -397,17 +415,6 @@ namespace KKBridge
             {
                 TraverseBones(child, indent + "  ", builder);
             }
-        }
-
-        public static Transform FindDeepChild(Transform parent, string targetName)
-        {
-            foreach (Transform child in parent)
-            {
-                if (child.name == targetName) return child;
-                Transform result = FindDeepChild(child, targetName);
-                if (result != null) return result;
-            }
-            return null;
         }
     }
 }
