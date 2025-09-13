@@ -11,92 +11,113 @@ using UnityEngine;
 #region VMD 工具類別 (VMD Helper Classes)
 
 /// <summary>
-/// 骨骼名稱映射器，將 Koikatsu 的骨骼名稱翻譯為 MMD 標準名稱
+/// 骨骼名稱映射器，將 Koikatsu 的骨骼名稱翻譯為 MMD 標準名稱，並儲存其初始旋轉
 /// </summary>
 public static class BoneMapper
 {
-    private static readonly Dictionary<string, string> KkToMmdMap = new Dictionary<string, string>
+    /// <summary>
+    /// 儲存MMD骨骼名稱和其在Koikatsu中的初始旋轉資訊
+    /// </summary>
+    public class BoneMappingInfo
+    {
+        public string MmdName { get; }
+        public Quaternion InitialRotation { get; }
+
+        public BoneMappingInfo(string mmdName, Vector3 initialEulerAngles)
+        {
+            MmdName = mmdName;
+            InitialRotation = Quaternion.Euler(initialEulerAngles);
+        }
+
+        public BoneMappingInfo(string mmdName)
+        {
+            MmdName = mmdName;
+            InitialRotation = Quaternion.identity;
+        }
+    }
+
+    private static readonly Dictionary<string, BoneMappingInfo> KkToMmdMap = new Dictionary<string, BoneMappingInfo>
     {
         // 根骨骼和中心
-        { "chaF_", "全ての親" },
-        // { "cf_j_root", "全ての親" },
-        { "cf_j_hips", "センター" }, // グルーブ?
+        { "chaF_", new BoneMappingInfo("全ての親") },
+        // { "cf_j_root", new BoneMappingInfo("全ての親") },
+        { "cf_j_hips", new BoneMappingInfo("センター") },
 
         // 首/頭
-        { "cf_j_neck", "首" },
-        { "cf_j_head", "頭" },
+        { "cf_j_neck", new BoneMappingInfo("首") },
+        { "cf_j_head", new BoneMappingInfo("頭") },
 
         // 軀幹
-        { "cf_j_spine01", "上半身" },
-        { "cf_j_spine02", "上半身2" },
-        // { "cf_j_spine03", "上半身3" },
-        { "cf_j_waist01", "下半身" },
+        { "cf_j_spine01", new BoneMappingInfo("上半身") },
+        { "cf_j_spine02", new BoneMappingInfo("上半身2") },
+        // { "cf_j_spine03", new BoneMappingInfo("上半身3") },
+        { "cf_j_waist01", new BoneMappingInfo("下半身") },
 
         // 目
-        { "cf_J_hitomi_tx_L", "左目" },
-        { "cf_J_hitomi_tx_R", "右目" },
+        // { "cf_J_hitomi_tx_L", new BoneMappingInfo("左目", new Vector3(1.4f, 2.2f, 7.1f)) },
+        // { "cf_J_hitomi_tx_R", new BoneMappingInfo("右目") }, // txt中為0,0,0
 
         // 肩
-        { "cf_j_shoulder_L", "左肩" },
-        { "cf_j_shoulder_R", "右肩" },
+        { "cf_j_shoulder_L", new BoneMappingInfo("左肩") },
+        { "cf_j_shoulder_R", new BoneMappingInfo("右肩") },
 
         // 手臂
-        { "cf_j_arm00_L", "左腕" },
-        { "cf_j_arm00_R", "右腕" },
-        { "cf_j_forearm01_L", "左ひじ" },
-        { "cf_j_forearm01_R", "右ひじ" },
-        { "cf_j_hand_L", "左手首" },
-        { "cf_j_hand_R", "右手首" },
+        { "cf_j_arm00_L", new BoneMappingInfo("左腕") },
+        { "cf_j_arm00_R", new BoneMappingInfo("右腕") },
+        { "cf_j_forearm01_L", new BoneMappingInfo("左ひじ") },
+        { "cf_j_forearm01_R", new BoneMappingInfo("右ひじ") },
+        { "cf_j_hand_L", new BoneMappingInfo("左手首") },
+        { "cf_j_hand_R", new BoneMappingInfo("右手首") },
 
         // 足
-        { "cf_j_thigh00_L", "左足" },
-        { "cf_j_thigh00_R", "右足" },
-        { "cf_j_leg01_L", "左ひざ" },
-        { "cf_j_leg01_R", "右ひざ" },
-        { "cf_j_leg03_L", "左足首" },
-        { "cf_j_leg03_R", "右足首" },
-        { "cf_j_toes_L", "左足先EX" },
-        { "cf_j_toes_R", "右足先EX" },
+        { "cf_j_thigh00_L", new BoneMappingInfo("左足") },
+        { "cf_j_thigh00_R", new BoneMappingInfo("右足") },
+        { "cf_j_leg01_L", new BoneMappingInfo("左ひざ") },
+        { "cf_j_leg01_R", new BoneMappingInfo("右ひざ") },
+        { "cf_j_leg03_L", new BoneMappingInfo("左足首") },
+        { "cf_j_leg03_R", new BoneMappingInfo("右足首") },
+        { "cf_j_toes_L", new BoneMappingInfo("左足先EX") },
+        { "cf_j_toes_R", new BoneMappingInfo("右足先EX") },
 
         // 左手手指
-        { "cf_j_thumb01_L", "左親指０" },
-        { "cf_j_thumb02_L", "左親指１" },
-        { "cf_j_thumb03_L", "左親指２" },
-        { "cf_j_index01_L", "左人指１" },
-        { "cf_j_index02_L", "左人指２" },
-        { "cf_j_index03_L", "左人指３" },
-        { "cf_j_middle01_L", "左中指１" },
-        { "cf_j_middle02_L", "左中指２" },
-        { "cf_j_middle03_L", "左中指３" },
-        { "cf_j_ring01_L", "左薬指１" },
-        { "cf_j_ring02_L", "左薬指２" },
-        { "cf_j_ring03_L", "左薬指３" },
-        { "cf_j_little01_L", "左小指１" },
-        { "cf_j_little02_L", "左小指２" },
-        { "cf_j_little03_L", "左小指３" },
+        { "cf_j_thumb01_L", new BoneMappingInfo("左親指０", new Vector3(80.0f, 90.0f, 55.0f)) },
+        { "cf_j_thumb02_L", new BoneMappingInfo("左親指１") },
+        { "cf_j_thumb03_L", new BoneMappingInfo("左親指２") },
+        { "cf_j_index01_L", new BoneMappingInfo("左人指１", new Vector3(3.5f, 5.3f, 5.0f)) },
+        { "cf_j_index02_L", new BoneMappingInfo("左人指２") },
+        { "cf_j_index03_L", new BoneMappingInfo("左人指３") },
+        { "cf_j_middle01_L", new BoneMappingInfo("左中指１", new Vector3(357.0f, 359.7f, 5.0f)) },
+        { "cf_j_middle02_L", new BoneMappingInfo("左中指２") },
+        { "cf_j_middle03_L", new BoneMappingInfo("左中指３") },
+        { "cf_j_ring01_L", new BoneMappingInfo("左薬指１", new Vector3(352.4f, 355.3f, 5.0f)) },
+        { "cf_j_ring02_L", new BoneMappingInfo("左薬指２") },
+        { "cf_j_ring03_L", new BoneMappingInfo("左薬指３") },
+        { "cf_j_little01_L", new BoneMappingInfo("左小指１", new Vector3(344.8f, 350.6f, 5.1f)) },
+        { "cf_j_little02_L", new BoneMappingInfo("左小指２") },
+        { "cf_j_little03_L", new BoneMappingInfo("左小指３") },
 
         // 右手手指
-        { "cf_j_thumb01_R", "右親指０" },
-        { "cf_j_thumb02_R", "右親指１" },
-        { "cf_j_thumb03_R", "右親指２" },
-        { "cf_j_index01_R", "右人指１" },
-        { "cf_j_index02_R", "右人指２" },
-        { "cf_j_index03_R", "右人指３" },
-        { "cf_j_middle01_R", "右中指１" },
-        { "cf_j_middle02_R", "右中指２" },
-        { "cf_j_middle03_R", "右中指３" },
-        { "cf_j_ring01_R", "右薬指１" },
-        { "cf_j_ring02_R", "右薬指２" },
-        { "cf_j_ring03_R", "右薬指３" },
-        { "cf_j_little01_R", "右小指１" },
-        { "cf_j_little02_R", "右小指２" },
-        { "cf_j_little03_R", "右小指３" },
+        { "cf_j_thumb01_R", new BoneMappingInfo("右親指０", new Vector3(280.0f, 90.0f, 235.0f)) },
+        { "cf_j_thumb02_R", new BoneMappingInfo("右親指１") },
+        { "cf_j_thumb03_R", new BoneMappingInfo("右親指２") },
+        { "cf_j_index01_R", new BoneMappingInfo("右人指１", new Vector3(356.5f, 174.7f, 185.0f)) },
+        { "cf_j_index02_R", new BoneMappingInfo("右人指２") },
+        { "cf_j_index03_R", new BoneMappingInfo("右人指３") },
+        { "cf_j_middle01_R", new BoneMappingInfo("右中指１", new Vector3(3.0f, 180.3f, 185.0f)) },
+        { "cf_j_middle02_R", new BoneMappingInfo("右中指２") },
+        { "cf_j_middle03_R", new BoneMappingInfo("右中指３") },
+        { "cf_j_ring01_R", new BoneMappingInfo("右薬指１", new Vector3(7.6f, 184.7f, 185.0f)) },
+        { "cf_j_ring02_R", new BoneMappingInfo("右薬指２") },
+        { "cf_j_ring03_R", new BoneMappingInfo("右薬指３") },
+        { "cf_j_little01_R", new BoneMappingInfo("右小指１", new Vector3(15.2f, 189.4f, 185.1f)) },
+        { "cf_j_little02_R", new BoneMappingInfo("右小指２") },
+        { "cf_j_little03_R", new BoneMappingInfo("右小指３") },
     };
 
-    public static bool TryGetMmdBoneName(string kkBoneName, out string mmdBoneName)
+    public static bool TryGetMappingInfo(string kkBoneName, out BoneMappingInfo mappingInfo)
     {
         // 先檢查字典中是否有完全匹配
-        if (KkToMmdMap.TryGetValue(kkBoneName, out mmdBoneName))
+        if (KkToMmdMap.TryGetValue(kkBoneName, out mappingInfo))
         {
             return true;
         }
@@ -106,12 +127,12 @@ public static class BoneMapper
         {
             if (!string.IsNullOrEmpty(kvp.Key) && kkBoneName.StartsWith(kvp.Key))
             {
-                mmdBoneName = kvp.Value;
+                mappingInfo = kvp.Value;
                 return true;
             }
         }
 
-        mmdBoneName = null;
+        mappingInfo = null;
         return false;
     }
 }
@@ -307,9 +328,9 @@ namespace KKBridge
             if (bone == null) return;
 
             string displayName;
-            if (BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName))
+            if (BoneMapper.TryGetMappingInfo(bone.name, out var mapInfo))
             {
-                displayName = $"{bone.name} [{mmdBoneName}]";
+                displayName = $"{bone.name} [{mapInfo.MmdName}]";
             }
             else
             {
@@ -467,33 +488,40 @@ namespace KKBridge
             bool shouldExport = RequiredBoneNameParts.Any(requiredPart => bone.name.Contains(requiredPart));
 
             // 如果符合白名單，並且可以在 BoneMapper 中找到對應的 MMD 名稱，則導出其數據
-            if (shouldExport && BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName))
+            if (shouldExport && BoneMapper.TryGetMappingInfo(bone.name, out var mapInfo))
             {
-                var frame = new VmdMotionFrame(mmdBoneName);
+                var frame = new VmdMotionFrame(mapInfo.MmdName);
+
                 Vector3 localPos = bone.localPosition;
                 Quaternion localRot = bone.localRotation;
 
+                // 減去骨骼的初始旋轉，得到相對於T-Pose的純淨旋轉
+                // 公式為: FinalRotation = Inverse(InitialRotation) * CurrentRotation
+                Quaternion initialRot = mapInfo.InitialRotation;
+                Quaternion relativeRot = Quaternion.Inverse(initialRot) * localRot;
+
                 // 根據骨骼名稱應用 T-Pose 到 A-Pose 的旋轉校正
-                switch (mmdBoneName)
+                switch (mapInfo.MmdName)
                 {
                     case "左肩":
-                        localRot *= Quaternion.Euler(0, 0, -14.0f);
+                        relativeRot *= Quaternion.Euler(0, 0, -14.0f);
                         break;
                     case "右肩":
-                        localRot *= Quaternion.Euler(0, 0, 14.0f);
+                        relativeRot *= Quaternion.Euler(0, 0, 14.0f);
                         break;
                     case "左腕":
-                        localRot *= Quaternion.Euler(0, 0, -21.0f);
+                        relativeRot *= Quaternion.Euler(0, 0, -21.0f);
                         break;
                     case "右腕":
-                        localRot *= Quaternion.Euler(0, 0, 21.0f);
+                        relativeRot *= Quaternion.Euler(0, 0, 21.0f);
                         break;
                 }
 
                 // const float scaleFactor = 12.5f;
                 // frame.Position = new Vector3(-localPos.x * scaleFactor, localPos.y * scaleFactor, -localPos.z * scaleFactor);
                 frame.Position = new Vector3(0, 0, 0);
-                frame.Rotation = new Quaternion(-localRot.x, localRot.y, -localRot.z, localRot.w);
+                frame.Rotation = new Quaternion(-relativeRot.x, relativeRot.y, -relativeRot.z, relativeRot.w);
+
                 frameList.Add(frame);
             }
 
@@ -517,10 +545,15 @@ namespace KKBridge
             // 如果符合白名單，則將其資訊添加到報告中
             if (shouldIncludeInReport)
             {
-                BoneMapper.TryGetMmdBoneName(bone.name, out string mmdBoneName);
-                string displayName = string.IsNullOrEmpty(mmdBoneName)
-                    ? bone.name
-                    : $"{bone.name} [{mmdBoneName}]";
+                string displayName;
+                if (BoneMapper.TryGetMappingInfo(bone.name, out var mapInfo))
+                {
+                    displayName = $"{bone.name} [{mapInfo.MmdName}]";
+                }
+                else
+                {
+                    displayName = bone.name;
+                }
 
                 string boneInfo = $"{indent}{displayName}                    P{bone.localPosition:F3} R{bone.localEulerAngles:F3} S{bone.localScale:F3}";
                 builder.AppendLine(boneInfo);
