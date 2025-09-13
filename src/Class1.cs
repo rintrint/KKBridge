@@ -24,18 +24,18 @@ public static class BoneMapper
         { "cf_j_neck", "首" },
         { "cf_j_head", "頭" },
         { "cf_j_shoulder_L", "左肩" },
-        { "cf_j_arm00_L", "左腕" },
-        { "cf_j_forearm01_L", "左ひじ" },
-        { "cf_j_hand_L", "左手首" },
         { "cf_j_shoulder_R", "右肩" },
+        { "cf_j_arm00_L", "左腕" },
         { "cf_j_arm00_R", "右腕" },
+        { "cf_j_forearm01_L", "左ひじ" },
         { "cf_j_forearm01_R", "右ひじ" },
+        { "cf_j_hand_L", "左手首" },
         { "cf_j_hand_R", "右手首" },
         { "cf_j_thigh00_L", "左足" },
-        { "cf_j_leg01_L", "左ひざ" },
-        { "cf_j_leg03_L", "左足首" },
         { "cf_j_thigh00_R", "右足" },
+        { "cf_j_leg01_L", "左ひざ" },
         { "cf_j_leg01_R", "右ひざ" },
+        { "cf_j_leg03_L", "左足首" },
         { "cf_j_leg03_R", "右足首" },
         { "cf_j_thumb01_L", "左親指１" }, { "cf_j_thumb02_L", "左親指２" },
         { "cf_j_index01_L", "左人指１" }, { "cf_j_index02_L", "左人指２" }, { "cf_j_index03_L", "左人指３" },
@@ -210,7 +210,7 @@ namespace KKBridge
         }
 
         /// <summary>
-        /// 【整合功能】按下F7後執行所有導出操作
+        /// 按下F7後執行所有導出操作
         /// </summary>
         private void ExportAllData()
         {
@@ -222,7 +222,6 @@ namespace KKBridge
             }
 
             var characters = studioInstance.dicObjectCtrl.Values.OfType<OCIChar>().ToList();
-
             if (!characters.Any())
             {
                 Log.LogWarning("No characters found in the scene to export.");
@@ -234,19 +233,28 @@ namespace KKBridge
             // --- 準備VMD導出 ---
             var exporter = new VmdExporter();
             string outputDirectory = "C:\\Users\\user\\Desktop\\out";
-
             try
             {
+                // 步驟 1: 確保目標資料夾存在，如果不存在就建立它
                 Directory.CreateDirectory(outputDirectory);
+                // 步驟 2: 清空資料夾內的所有內容
+                DirectoryInfo di = new DirectoryInfo(outputDirectory);
+                foreach (FileInfo file in di.GetFiles())
+                {
+                    file.Delete(); 
+                }
+                foreach (DirectoryInfo dir in di.GetDirectories())
+                {
+                    dir.Delete(true); 
+                }
             }
             catch (Exception e)
             {
-                Log.LogError($"Could not create output directory '{outputDirectory}'. Error: {e.Message}");
+                Log.LogError($"Could not create or clear output directory '{outputDirectory}'. Error: {e.Message}");
                 return;
             }
 
             int charIndex = 1;
-
             // --- 遍歷所有角色，為每個角色分別導出 VMD 和 TXT ---
             foreach (var ociChar in characters)
             {
@@ -330,6 +338,24 @@ namespace KKBridge
                 var frame = new VmdMotionFrame(mmdBoneName);
                 Vector3 localPos = bone.localPosition;
                 Quaternion localRot = bone.localRotation;
+
+                // 根據骨骼名稱應用 T-Pose 到 A-Pose 的旋轉校正
+                switch (mmdBoneName)
+                {
+                    case "左肩":
+                        localRot *= Quaternion.Euler(0, 0, -14.0f);
+                        break;
+                    case "右肩":
+                        localRot *= Quaternion.Euler(0, 0, 14.0f);
+                        break;
+                    case "左腕":
+                        localRot *= Quaternion.Euler(0, 0, -21.0f);
+                        break;
+                    case "右腕":
+                        localRot *= Quaternion.Euler(0, 0, 21.0f);
+                        break;
+                }
+
                 // const float scaleFactor = 12.5f;
                 // frame.Position = new Vector3(-localPos.x * scaleFactor, localPos.y * scaleFactor, -localPos.z * scaleFactor);
                 frame.Position = new Vector3(0, 0, 0);
