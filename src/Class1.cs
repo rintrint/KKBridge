@@ -301,21 +301,38 @@ namespace KKBridge
             Log.LogInfo("KKBridge Plugin loaded! Press F7 to export all characters' VMD & bone info.");
         }
 
-        private void Update()
+        private void Start()
         {
-            if (Input.GetKeyDown(KeyCode.F7))
-            {
-                // ----- 打印當前選中的骨骼資訊 -----
-                Log.LogInfo("F7 key pressed. Checking for selected bone...");
-                PrintSelectedBoneInfo();
-
-                // ----- 導出所有資料 -----
-                Log.LogInfo("Now, exporting all data...");
-                ExportAllData();
-            }
+            // 插件載入後立即執行，和LateUpdate的方案只能二選一
+            PrintSelectedBoneInfo();
+            ExportAllData();
         }
 
-        // ******** NEW/MODIFIED CODE START ********
+        private void Update()
+        {
+        }
+
+        // // 我們使用 LateUpdate 來捕獲按鍵，確保在當前影格的邏輯循環中
+        // private void LateUpdate()
+        // {
+        //     if (Input.GetKeyDown(KeyCode.F7))
+        //     {
+        //         // 按下F7時，不要立刻執行，而是啟動我們的協程
+        //         Log.LogInfo("F7 key pressed. Waiting for end of frame to export...");
+        //         StartCoroutine(ExportAtEndOfFrame());
+        //     }
+        // }
+        // // 這是一個協程，它會在一個影格的最後時刻執行
+        // private System.Collections.IEnumerator ExportAtEndOfFrame()
+        // {
+        //     // 關鍵！等待，直到所有 Update、LateUpdate 和渲染都完成
+        //     yield return new WaitForEndOfFrame();
+        //     // 在這個時間點，所有 Transform 的數據都是最終的、穩定的
+        //     Log.LogInfo("End of frame reached. Executing data export...");
+        //     PrintSelectedBoneInfo();
+        //     ExportAllData();
+        // }
+
         /// <summary>
         /// 輔助方法：檢查指定的FK部位UI上的「燈」是否啟用。
         /// 這個方法會讀取角色存檔中的真實狀態，獨立於FK總開關。
@@ -356,7 +373,6 @@ namespace KKBridge
             }
             return false;
         }
-        // ******** NEW/MODIFIED CODE END ********
 
         /// <summary>
         /// 獲取並打印當前在工作室中選中的骨骼資訊
