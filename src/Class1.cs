@@ -365,15 +365,6 @@ namespace KKBridge
     {
         internal static ManualLogSource Log;
 
-        // 白名單: 只導出名稱包含以下任何關鍵字的骨骼
-        private static readonly List<string> _requiredBoneNameParts = new List<string>
-        {
-            "_j_",
-            "_J_",
-            "chaF_",
-            "EyeTarget",
-        };
-
         private void Awake()
         {
             Log = base.Logger;
@@ -824,11 +815,8 @@ namespace KKBridge
         {
             if (bone == null) return;
 
-            // 檢查當前骨骼是否符合白名單條件
-            bool shouldExport = _requiredBoneNameParts.Any(requiredPart => bone.name.Contains(requiredPart));
-
-            // 如果符合白名單，並且可以在 BoneMapper 中找到對應的 MMD 名稱，則導出其數據
-            if (shouldExport && BoneMapper.TryGetMappingInfo(bone.name, out var mapInfo))
+            // 如果可以在 BoneMapper 中找到對應的 MMD 名稱，則導出其數據
+            if (BoneMapper.TryGetMappingInfo(bone.name, out var mapInfo))
             {
                 var frame = new VmdMotionFrame(mapInfo.MmdName);
 
@@ -1043,11 +1031,6 @@ namespace KKBridge
         {
             if (bone == null) return;
 
-            // 檢查當前骨骼是否符合白名單條件
-            bool shouldExport = _requiredBoneNameParts.Any(requiredPart => bone.name.Contains(requiredPart));
-
-            // 如果符合白名單，則將其資訊添加到報告中
-            if (shouldExport)
             {
                 string displayName;
                 if (BoneMapper.TryGetMappingInfo(bone.name, out var mapInfo))
