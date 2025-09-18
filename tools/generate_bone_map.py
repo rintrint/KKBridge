@@ -6,13 +6,15 @@ from mathutils import Euler, Matrix, Quaternion, Vector
 globals().update(vars(bpy.data.texts["Text"].as_module()))
 
 
-def format_quaternion_xyzw(quat, precision=3):
+def format_quaternion_xyzw(quat):
+    # float的精度約為6-9位有效數字，格式化輸出時指定9位小數，以確保能最大化保留原始精度
+
     # 格式化每個分量
     def format_component(val):
         # 先轉換成字串
-        formatted = f"{val:.{precision}f}f"
-        # 先處理 -0.000f
-        formatted = formatted.replace("-0.000f", "0.000f")
+        formatted = f"{val:.9f}f"
+        # 先處理 -0.000000000f
+        formatted = formatted.replace("-0.000000000f", "0.000000000f")
         # 再處理正數前面加空格對齊
         if not formatted.startswith("-"):
             formatted = f" {formatted}"
