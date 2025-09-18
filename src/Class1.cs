@@ -1,3 +1,66 @@
+// ================================================================
+// 上下文
+//
+// === 單位四元數運算 ===
+// 共軛等價於逆(必須是單位四元數)
+// 共軛:    q = (-x, -y, -z, w);
+// XY鏡像:  q = (-x, -y,  z, w);
+// XZ鏡像:  q = (-x,  y, -z, w);
+// YZ鏡像:  q = ( x, -y, -z, w);
+// 坐標映射: C = A * B * A.conjugated();
+//
+// 共軛反交換律
+// (A * B).conjugated() = B.conjugated() * A.conjugated()
+// 坐標變換+共軛
+// C = (A * B * A.conjugated()).conjugated()
+// C = (B * A.conjugated()).conjugated() * A.conjugated()
+// C = A * B.conjugated() * A.conjugated()
+// C = A * (A * B).conjugated()
+//
+// Blender  坐標是Z向上 骨骼主軸是Y
+// Koikatsu 坐標是Y向上 骨骼主軸是X
+//
+// Koikatsu的Unity版本太舊，Quaternion少了一些重要方法
+// 所以自行實現QuaternionExtensions補足
+//
+// 專案使用.NET Framework 3.5
+//
+// 直接讀取FK骨的動作數據，不使用changeAmount
+// 如果改成讀取changeAmount就沒辦法烘焙IK到FK了，等於沒有意義
+//
+// CharaStudio將人物改成T-pose靜止姿勢的方法:
+// 關閉IK，打開所有FK將旋轉通通重置為0
+// 眼睛難以調整成靜止姿勢，[正面][相機][閃躲][固定][操作]5個選項旋轉都不是0
+//
+// Koikatsu使用T-pose，且骨骼嚴格平行於三軸
+// 右手手指是反的，扭轉成指甲朝下
+// 眼睛是貼圖移動，將眼睛骨骼旋轉角度做線性變換得到貼圖坐標偏移
+//
+// PMX對照模型
+// Tda式初音ミク・アペンドVer1.10
+// https://bowlroll.net/file/4576
+// PMX使用A-pose，部分骨骼有扭轉
+//
+// 1.在Blender中使用Python腳本預先計算出「T-Pose修正」和「坐標變換」所需的四元數數據
+// 2.手動修正Koikatsu特殊軸向問題，套用針對特定骨骼的硬編碼鏡像或旋轉處理
+// 3.使用預先計算好的「T-Pose修正」和「坐標變換」數據計算出正確VMD旋轉數據
+//
+// Koikatsu原始局部空間旋轉數據 -> 手動軸向修正 -> T-Pose修正 -> 坐標變換 -> VMD旋轉數據
+//
+// Python和C#腳本都手動正確處理了骨骼T-Pose朝向和扭轉問題
+//
+// Python腳本路徑: tools/generate_bone_map.py
+//
+// 坐標變換的四種方法:
+// 1.歐拉角(有萬向鎖問題)
+// 2.四元數運算
+// 3.軸角表示法
+// 4.旋轉矩陣
+//
+// 注意Blender四元數是wxyz，Unity和VMD四元數是xyzw
+//
+// ================================================================
+
 using BepInEx;
 using BepInEx.Logging;
 using RootMotion.FinalIK;
@@ -431,7 +494,7 @@ namespace KKBridge
             }
         }
 
-        // 新增輔助方法：找到 armature 根部
+        // 輔助方法: 找到 armature 根部
         private Transform FindArmatureRoot(Transform bone)
         {
             Transform current = bone;
@@ -588,7 +651,7 @@ namespace KKBridge
                               $"World Rotation:     R{bone.rotation.ToString("F3")}\n" +
                               $"\n--- RELATIVE TO PARENT ---\n" +
                               $"{relativeInfo}" +
-                              $"{armatureRelativeInfo}" + // 加入 armature 相對資訊
+                              $"{armatureRelativeInfo}" +
                               $"\n--- ADDITIONAL INFO ---\n" +
                               $"Transform Right:    {bone.right.ToString("F3")}\n" +
                               $"Transform Up:       {bone.up.ToString("F3")}\n" +
@@ -741,39 +804,23 @@ namespace KKBridge
             Log.LogInfo("All export tasks finished.");
         }
 
-
-
-        public static Quaternion CalculateBoneConverter(Quaternion A)
-        {
-            // --- 等價的矩陣實現步驟 ---
-            // 1. mat = A.to_matrix()
-            // 2. mat[1], mat[2] = mat[2], mat[1]
-            // 3. mat.transpose()
-            // 4. mat.invert()
-            // 5. B = mat.to_quaternion()
-            const float c = 0.707106781186547524400844362104849039284835937688474f;
-            float x = A.x;
-            float y = A.y;
-            float z = A.z;
-            float w = A.w;
-            // 根據推導出的線性變換公式直接計算新四元數 B 的分量
-            Quaternion B = new Quaternion(
-                c * (-y - z),
-                -c * (w - x),
-                c * (w + x),
-                c * (y - z)
-            );
-            return B;
-        }
+        /// <summary>
+        /// 將四元數旋轉轉換為VMD格式的旋轉
+        /// 使用四元數運算進行坐標變換
+        /// </summary>
+        /// <param name="transformXyzw">變換四元數，用於坐標變換</param>
+        /// <param name="rotationXyzw">原始旋轉四元數</param>
+        /// <returns>轉換後的VMD旋轉四元數</returns>
         public static Quaternion ConvertRotation(Quaternion transformXyzw, Quaternion rotationXyzw)
         {
             // 坐標變換
             // C = A * B * A.Inverse();
-            // 優化：單位四元數共軛和逆等價，可用共軛取代逆，更高效。
+            // 優化: 單位四元數共軛和逆等價，可用共軛取代逆，更高效。
             // C = A * B * A.conjugated();
             Quaternion result = transformXyzw * rotationXyzw * transformXyzw.conjugated();
             return result;
         }
+
         /// <summary>
         /// 將四元數旋轉轉換為VMD格式的旋轉
         /// 使用軸角表示法進行坐標變換
@@ -793,8 +840,6 @@ namespace KKBridge
             Quaternion convertedRotation = Quaternion.AngleAxis(angle, finalAxis.normalized);
             return convertedRotation;
         }
-
-
 
         /// <summary>
         /// 將 0-360 度的歐拉角轉換為 -180-180 度的範圍，以便進行比較和限制。
@@ -1009,6 +1054,7 @@ namespace KKBridge
                 relativeRot = ConvertRotation(mapInfo.CoordinateConversion, relativeRot);
 
                 frame.Position = relativePos;
+                // 假設Unity輸出單位四元數，函數開頭不做正規化
                 // 只在結尾正規化，解決精度誤差導致magnitude在0.999和1.001之間浮動
                 frame.Rotation = relativeRot.normalized();
                 // 檢查正規化結果
