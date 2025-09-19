@@ -69,8 +69,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace KKBridge
 {
@@ -436,6 +438,8 @@ namespace KKBridge
 
         private void Start()
         {
+            StartCoroutine(CreateKKBridgeButton_Coroutine());
+
             // 插件載入後立即執行，和LateUpdate的方案只能二選一
             PrintSelectedBoneInfo();
             ExportAllData();
@@ -447,6 +451,119 @@ namespace KKBridge
             if (Input.GetKeyDown(KeyCode.F8) && !_isExporting)
             {
                 StartCoroutine(ExportTimelineAnimation_Coroutine());
+            }
+        }
+
+        private void OnBridgeButtonClicked()
+        {
+            Log.LogInfo("KKBridge Button Clicked! Starting export...");
+            ExportAllData();
+        }
+
+        private System.Collections.IEnumerator CreateKKBridgeButton_Coroutine()
+        {
+            yield return null;
+
+            string buttonPath = "StudioScene/Canvas System Menu/01_Button/KKBridge Button";
+            GameObject existingButton = GameObject.Find(buttonPath);
+            if (existingButton != null)
+            {
+                Destroy(existingButton);
+                yield return null;
+            }
+
+            try
+            {
+                Transform parentPanel = GameObject.Find("StudioScene/Canvas System Menu/01_Button")?.transform;
+                if (parentPanel == null || parentPanel.childCount == 0)
+                {
+                    Log.LogError("[KKBridgeButton] ERROR: 找不到UI面板 '.../01_Button'。");
+                    yield break;
+                }
+
+                Texture2D iconTexture = LoadImageFromAssembly("KKBridge.Resources.Icon.png");
+                if (iconTexture == null)
+                {
+                    Log.LogError("[KKBridgeButton] ERROR: 無法從 DLL 中載入嵌入的資源 'KKBridge.Resources.Icon.png'。");
+                    yield break;
+                }
+
+                GameObject templateButtonObj = parentPanel.GetChild(0).gameObject;
+                GameObject kkBridgeButtonObj = Instantiate(templateButtonObj);
+                kkBridgeButtonObj.name = "KKBridge Button";
+
+                Image kkBridgeButtonImage = kkBridgeButtonObj.GetComponent<Image>();
+                if (kkBridgeButtonImage != null)
+                {
+                    kkBridgeButtonImage.sprite = Sprite.Create(iconTexture, new Rect(0, 0, iconTexture.width, iconTexture.height), new Vector2(0.5f, 0.5f));
+                    kkBridgeButtonImage.color = Color.white;
+                }
+
+                kkBridgeButtonObj.transform.SetParent(parentPanel, true);
+                kkBridgeButtonObj.transform.localScale = templateButtonObj.transform.localScale;
+
+                var childButtons = new List<RectTransform>();
+                foreach (Transform child in parentPanel) childButtons.Add(child as RectTransform);
+                Vector2 basePosition = new Vector2(0f, float.MaxValue);
+                foreach (RectTransform buttonRect in childButtons)
+                {
+                    if (buttonRect.anchoredPosition.x >= basePosition.x && buttonRect.anchoredPosition.y <= buttonRect.anchoredPosition.y)
+                        basePosition = buttonRect.anchoredPosition;
+                }
+                while (childButtons.Any(c => c.name != kkBridgeButtonObj.name && (c.anchoredPosition - basePosition).sqrMagnitude < 4f))
+                {
+                    basePosition.y += 40f;
+                }
+                ((RectTransform)kkBridgeButtonObj.transform).anchoredPosition = basePosition;
+
+                Button buttonComponent = kkBridgeButtonObj.GetComponent<Button>();
+                if (buttonComponent != null)
+                {
+                    buttonComponent.interactable = true;
+
+                    buttonComponent.onClick = new Button.ButtonClickedEvent();
+                    buttonComponent.onClick.AddListener(OnBridgeButtonClicked);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.LogError($"[KKBridgeButton] CRITICAL ERROR: 添加按鈕時發生錯誤: {e.ToString()}");
+            }
+        }
+
+        /// <summary>
+        /// 從當前 Assembly (DLL) 的嵌入式資源中載入圖片
+        /// </summary>
+        /// <param name="resourceName">資源的完整名稱 (專案名稱.檔案名稱)</param>
+        /// <returns>載入後的 Texture2D 物件</returns>
+        private Texture2D LoadImageFromAssembly(string resourceName)
+        {
+            try
+            {
+                // 獲取當前正在執行的 Assembly (也就是 KKBridge.dll)
+                Assembly assembly = Assembly.GetExecutingAssembly();
+
+                // 讀取嵌入式資源的數據流
+                using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+                {
+                    if (stream == null) return null;
+
+                    // 將數據流讀入位元組陣列
+                    byte[] buffer = new byte[stream.Length];
+                    stream.Read(buffer, 0, buffer.Length);
+
+                    // 從位元組陣列創建 Texture2D
+                    // 尺寸參數 (2, 2) 不重要，LoadImage 會自動調整
+                    Texture2D texture = new Texture2D(2, 2);
+                    texture.LoadImage(buffer); // 這會自動解析PNG並載入
+
+                    return texture;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.LogError($"從 Assembly 載入圖片時出錯: {ex.Message}");
+                return null;
             }
         }
 
