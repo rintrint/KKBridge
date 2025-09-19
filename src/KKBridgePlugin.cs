@@ -829,8 +829,7 @@ namespace KKBridge
                 _isExporting = false;
                 yield break;
             }
-            int totalFrames = Mathf.RoundToInt(timelineDuration * fps);
-            Log.LogInfo($"Timeline 長度: {timelineDuration:F2} 秒, 總影格數: {totalFrames} (at {fps}fps) for {characters.Count} character(s).");
+            Log.LogInfo($"Timeline 長度: {timelineDuration:F2} 秒 (at {fps}fps) for {characters.Count} character(s).");
 
             // 儲存並設定 Time.captureFramerate
             int originalCaptureFramerate = Time.captureFramerate;
@@ -852,13 +851,32 @@ namespace KKBridge
 
                 var allFramesData = new List<VmdMotionFrame>();
 
-                // ** 核心循環，逐幀收集數據 **
-                for (int currentFrame = 0; currentFrame < totalFrames; currentFrame++)
+                // ** 核心循環，檢測循環來判斷結束 **
+                int currentFrame = 0;
+                float previousTime = -1f;
+
+                while (true)
                 {
                     // 第一個角色需要等待影格推進，後續角色直接讀取已推進的影格數據
                     if (charIndex == 1)
                     {
                         yield return new WaitForEndOfFrame();
+                    }
+
+                    float currentTime = TimelineCompatibility.GetPlaybackTime();
+
+                    // 檢測是否發生了時間倒退（循環）
+                    if (previousTime >= 0 && currentTime < previousTime)
+                    {
+                        Log.LogInfo($"檢測到 Timeline 循環，停止錄製角色 {charName}");
+                        break;
+                    }
+
+                    // 檢測是否已經達到或超過結束時間
+                    if (currentTime >= timelineDuration)
+                    {
+                        Log.LogInfo($"Timeline 播放完畢，停止錄製角色 {charName}");
+                        break;
                     }
 
                     var singleFrameBoneData = new List<VmdMotionFrame>();
@@ -870,11 +888,15 @@ namespace KKBridge
                         allFramesData.Add(boneFrame);
                     }
 
-                    if (charIndex == 1 && (currentFrame % 100 == 0 || currentFrame == totalFrames - 1))
+                    if (charIndex == 1 && (currentFrame % 100 == 0))
                     {
-                        Log.LogInfo($"正在推進影格: {currentFrame + 1} / {totalFrames}");
+                        Log.LogInfo($"正在推進影格: {currentFrame + 1}, 當前時間: {currentTime:F2}s / {timelineDuration:F2}s");
                     }
+
+                    previousTime = currentTime;
+                    currentFrame++;
                 }
+
                 Log.LogInfo($"角色 {charName} 的所有影格數據收集完畢 ({allFramesData.Count} 條記錄)。");
 
                 // ** 檔案匯出 **
@@ -926,6 +948,7 @@ namespace KKBridge
 
             // --- 階段三：全部完成 ---
             Time.captureFramerate = originalCaptureFramerate; // 恢復影格率
+            TimelineCompatibility.Play();
             _isExporting = false;
             Log.LogInfo("所有角色的 Timeline 動畫導出完成。");
         }
