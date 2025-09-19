@@ -59,7 +59,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Class1.cs" />
+    <Compile Include="KKBridgePlugin.cs" />
+    <Compile Include="Compatibility\Action.cs" />
+    <Compile Include="Compatibility\TimelineCompatibility.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
