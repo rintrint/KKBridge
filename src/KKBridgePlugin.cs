@@ -63,6 +63,7 @@
 
 using BepInEx;
 using BepInEx.Logging;
+using KKBridge.Compatibility;
 using Studio;
 using System;
 using System.Collections.Generic;
@@ -425,6 +426,7 @@ namespace KKBridge
     public class KKBridgePlugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
+        private bool _isExporting = false;
 
         private void Awake()
         {
@@ -441,6 +443,11 @@ namespace KKBridge
 
         private void Update()
         {
+            // 按下 F8 且當前沒有正在導出的任務時，開始導出 Timeline 動畫
+            if (Input.GetKeyDown(KeyCode.F8) && !_isExporting)
+            {
+                StartCoroutine(ExportTimelineAnimation_Coroutine());
+            }
         }
 
         // // 我們使用 LateUpdate 來捕獲按鍵，確保在當前影格的邏輯循環中
@@ -786,6 +793,141 @@ namespace KKBridge
             }
 
             Log.LogInfo("All export tasks finished.");
+        }
+
+        /// <summary>
+        /// 導出 Timeline 動畫的協程
+        /// </summary>
+        private System.Collections.IEnumerator ExportTimelineAnimation_Coroutine()
+        {
+            // --- 階段一：準備工作 ---
+            _isExporting = true;
+            Log.LogInfo("開始導出 Timeline 動畫...");
+
+            if (!TimelineCompatibility.Init())
+            {
+                Log.LogError("Timeline 插件未找到或初始化失敗。無法導出動畫。");
+                _isExporting = false;
+                yield break;
+            }
+
+            var studioInstance = Singleton<Studio.Studio>.Instance;
+            var characters = studioInstance.dicObjectCtrl.Values.OfType<OCIChar>().ToList();
+            if (!characters.Any())
+            {
+                Log.LogWarning("場景中沒有角色，導出取消。");
+                _isExporting = false;
+                yield break;
+            }
+
+            // 設定通用導出參數
+            const int fps = 60;
+            float timelineDuration = TimelineCompatibility.GetDuration();
+            if (timelineDuration <= 0)
+            {
+                Log.LogWarning("Timeline 長度為 0 或無效，導出取消。");
+                _isExporting = false;
+                yield break;
+            }
+            int totalFrames = Mathf.RoundToInt(timelineDuration * fps);
+            Log.LogInfo($"Timeline 長度: {timelineDuration:F2} 秒, 總影格數: {totalFrames} (at {fps}fps) for {characters.Count} character(s).");
+
+            // 儲存並設定 Time.captureFramerate
+            int originalCaptureFramerate = Time.captureFramerate;
+            Time.captureFramerate = fps;
+
+            if (!TimelineCompatibility.GetIsPlaying())
+            {
+                TimelineCompatibility.Play();
+            }
+
+            // --- 階段二：遍歷所有角色進行導出 ---
+            int charIndex = 1;
+            foreach (var ociChar in characters)
+            {
+                var chaCtrl = ociChar.charInfo;
+                var boneRoot = chaCtrl.transform;
+                string charName = chaCtrl.chaFile.parameter.fullname;
+                Log.LogInfo($"--- 開始處理角色 {charIndex}: {charName} ---");
+
+                var allFramesData = new List<VmdMotionFrame>();
+
+                // ** 核心循環，逐幀收集數據 **
+                for (int currentFrame = 0; currentFrame < totalFrames; currentFrame++)
+                {
+                    // 第一個角色需要等待影格推進，後續角色直接讀取已推進的影格數據
+                    if (charIndex == 1)
+                    {
+                        yield return new WaitForEndOfFrame();
+                    }
+
+                    var singleFrameBoneData = new List<VmdMotionFrame>();
+                    CollectBoneData(ociChar, boneRoot, singleFrameBoneData);
+
+                    foreach (var boneFrame in singleFrameBoneData)
+                    {
+                        boneFrame.FrameNumber = (uint)currentFrame;
+                        allFramesData.Add(boneFrame);
+                    }
+
+                    if (charIndex == 1 && (currentFrame % 100 == 0 || currentFrame == totalFrames - 1))
+                    {
+                        Log.LogInfo($"正在推進影格: {currentFrame + 1} / {totalFrames}");
+                    }
+                }
+                Log.LogInfo($"角色 {charName} 的所有影格數據收集完畢 ({allFramesData.Count} 條記錄)。");
+
+                // ** 檔案匯出 **
+                var exporter = new VmdExporter();
+                string outputDirectory = "C:\\Users\\user\\Desktop\\out";
+                Directory.CreateDirectory(outputDirectory);
+
+                var ikFrames = new List<VmdIkFrame> { new VmdIkFrame { FrameNumber = 0, Display = true } };
+                string[] ikNames = {
+                    "左腕ＩＫ",
+                    "右腕ＩＫ",
+                    "左足ＩＫ",
+                    "右足ＩＫ",
+                    "左つま先ＩＫ",
+                    "右つま先ＩＫ",
+
+                    "ﾈｸﾀｲＩＫ",
+                    "右髪ＩＫ",
+                    "左髪ＩＫ",
+                    "しっぽＩＫ",
+                    "右腰ベルトＩＫ",
+                    "左腰ベルトＩＫ",
+                };
+                foreach (string ikName in ikNames)
+                {
+                    ikFrames[0].IkEnables.Add(new VmdIkEnable(ikName, false));
+                }
+
+                // ** 使用包含編號的檔名 **
+                string vmdFileName = $"{charIndex}_{charName}_timeline.vmd";
+                foreach (char c in Path.GetInvalidFileNameChars())
+                {
+                    vmdFileName = vmdFileName.Replace(c.ToString(), "");
+                }
+                string vmdFilePath = Path.Combine(outputDirectory, vmdFileName);
+
+                try
+                {
+                    exporter.Export(allFramesData, ikFrames, "KoikatsuModel", vmdFilePath);
+                    Log.LogInfo($"成功導出 VMD 動畫到: {vmdFilePath}");
+                }
+                catch (Exception e)
+                {
+                    Log.LogError($"為角色 {charName} 導出 VMD 失敗: {e.Message}");
+                }
+
+                charIndex++;
+            }
+
+            // --- 階段三：全部完成 ---
+            Time.captureFramerate = originalCaptureFramerate; // 恢復影格率
+            _isExporting = false;
+            Log.LogInfo("所有角色的 Timeline 動畫導出完成。");
         }
 
         /// <summary>
