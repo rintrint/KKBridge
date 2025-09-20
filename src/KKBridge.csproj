@@ -73,6 +73,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Extensions\QuaternionExtensions.cs" />
     <Compile Include="KKBridgePlugin.cs" />
     <Compile Include="Compatibility\Action.cs" />
     <Compile Include="Compatibility\TimelineCompatibility.cs" />
