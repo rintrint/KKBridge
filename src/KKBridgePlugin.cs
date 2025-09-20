@@ -69,6 +69,7 @@ using KKBridge.Extensions;
 using Studio;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -82,41 +83,41 @@ namespace KKBridge
     #region VMD 工具類別 (VMD Helper Classes)
 
     /// <summary>
+    /// 儲存MMD骨骼名稱和其旋轉資訊
+    /// </summary>
+    public class BoneMappingInfo
+    {
+        public string MmdName { get; }
+        public Quaternion RestPoseCorrection { get; }
+        public Quaternion CoordinateConversion { get; }
+
+        public BoneMappingInfo(string mmdName, Quaternion restPoseCorrection, Quaternion coordinateConversion)
+        {
+            MmdName = mmdName;
+            RestPoseCorrection = restPoseCorrection;
+            CoordinateConversion = coordinateConversion;
+        }
+
+        public BoneMappingInfo(string mmdName, Quaternion restPoseCorrection)
+        {
+            MmdName = mmdName;
+            RestPoseCorrection = restPoseCorrection;
+            CoordinateConversion = Quaternion.identity;
+        }
+
+        public BoneMappingInfo(string mmdName)
+        {
+            MmdName = mmdName;
+            RestPoseCorrection = Quaternion.identity;
+            CoordinateConversion = Quaternion.identity;
+        }
+    }
+
+    /// <summary>
     /// 骨骼名稱映射器，將 Koikatsu 的骨骼名稱翻譯為 MMD 標準名稱，並儲存其旋轉資訊
     /// </summary>
     public static class BoneMapper
     {
-        /// <summary>
-        /// 儲存MMD骨骼名稱和其旋轉資訊
-        /// </summary>
-        public class BoneMappingInfo
-        {
-            public string MmdName { get; }
-            public Quaternion RestPoseCorrection { get; }
-            public Quaternion CoordinateConversion { get; }
-
-            public BoneMappingInfo(string mmdName, Quaternion restPoseCorrection, Quaternion coordinateConversion)
-            {
-                MmdName = mmdName;
-                RestPoseCorrection = restPoseCorrection;
-                CoordinateConversion = coordinateConversion;
-            }
-
-            public BoneMappingInfo(string mmdName, Quaternion restPoseCorrection)
-            {
-                MmdName = mmdName;
-                RestPoseCorrection = restPoseCorrection;
-                CoordinateConversion = Quaternion.identity;
-            }
-
-            public BoneMappingInfo(string mmdName)
-            {
-                MmdName = mmdName;
-                RestPoseCorrection = Quaternion.identity;
-                CoordinateConversion = Quaternion.identity;
-            }
-        }
-
         private static readonly Dictionary<string, BoneMappingInfo> _kkToMmdMap = new Dictionary<string, BoneMappingInfo>
         {
             { "chaF_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
@@ -178,6 +179,12 @@ namespace KKBridge
 
         public static bool TryGetMappingInfo(string kkBoneName, out BoneMappingInfo mappingInfo)
         {
+            if (kkBoneName == null)
+            {
+                mappingInfo = null;
+                return false;
+            }
+
             // 先檢查字典中是否有完全匹配
             if (_kkToMmdMap.TryGetValue(kkBoneName, out mappingInfo))
             {
@@ -187,7 +194,7 @@ namespace KKBridge
             // 再檢查字典中是否有前綴匹配
             foreach (var kvp in _kkToMmdMap)
             {
-                if (!string.IsNullOrEmpty(kvp.Key) && kkBoneName.StartsWith(kvp.Key))
+                if (!string.IsNullOrEmpty(kvp.Key) && kkBoneName.StartsWith(kvp.Key, StringComparison.Ordinal))
                 {
                     mappingInfo = kvp.Value;
                     return true;
@@ -237,7 +244,7 @@ namespace KKBridge
     {
         public uint FrameNumber { get; set; }
         public bool Display { get; set; }
-        public List<VmdIkEnable> IkEnables { get; }
+        public ICollection<VmdIkEnable> IkEnables { get; }
 
         public VmdIkFrame()
         {
@@ -247,13 +254,23 @@ namespace KKBridge
         }
     }
 
-    public class VmdExporter
+    public static class VmdExporter
     {
-        public void Export(List<VmdMotionFrame> frames, List<VmdIkFrame> ikFrames, string modelName, string filePath)
+        public static void Export(ICollection<VmdMotionFrame> frames, ICollection<VmdIkFrame> ikFrames, string modelName, string filePath)
         {
+            if (frames == null)
+            {
+                throw new ArgumentNullException(nameof(frames));
+            }
+            if (ikFrames == null)
+            {
+                throw new ArgumentNullException(nameof(ikFrames));
+            }
+
             var shiftJisEncoding = Encoding.GetEncoding("Shift_JIS");
 
-            using (var writer = new BinaryWriter(new FileStream(filePath, FileMode.Create, FileAccess.Write), shiftJisEncoding))
+            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+            using (var writer = new BinaryWriter(fileStream, shiftJisEncoding))
             {
                 // 寫入VMD標頭
                 writer.Write(shiftJisEncoding.GetBytes("Vocaloid Motion Data 0002\0\0\0\0\0"));
@@ -324,28 +341,31 @@ namespace KKBridge
     public class DraggableWindow : MonoBehaviour, IPointerDownHandler, IDragHandler
     {
         private Vector2 _offset;
-        public RectTransform targetRect;
+        public RectTransform TargetRect { get; set; }
 
         private void Awake()
         {
             // 如果未指定拖動目標，則預設為父物件
-            if (targetRect == null)
+            if (TargetRect == null)
             {
-                targetRect = transform.parent.GetComponent<RectTransform>();
+                TargetRect = transform.parent.GetComponent<RectTransform>();
             }
         }
 
         public void OnPointerDown(PointerEventData eventData)
         {
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(targetRect, eventData.position, eventData.pressEventCamera, out _offset);
+            if (eventData == null) return;
+
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(TargetRect, eventData.position, eventData.pressEventCamera, out _offset);
         }
 
         public void OnDrag(PointerEventData eventData)
         {
-            if (targetRect == null) return;
+            if (eventData == null) return;
+            if (TargetRect == null) return;
 
-            RectTransformUtility.ScreenPointToLocalPointInRectangle(targetRect.parent as RectTransform, eventData.position, eventData.pressEventCamera, out Vector2 localPointerPosition);
-            targetRect.localPosition = localPointerPosition - _offset;
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(TargetRect.parent as RectTransform, eventData.position, eventData.pressEventCamera, out Vector2 localPointerPosition);
+            TargetRect.localPosition = localPointerPosition - _offset;
         }
     }
 
@@ -383,8 +403,6 @@ namespace KKBridge
             }
 
             Log.LogInfo("KKBridge Plugin loaded!");
-            Log.LogInfo($" - Press {_toggleWindowHotkey.Value} to toggle the UI window.");
-            Log.LogInfo($" - Output Directory: {_outputDirectory.Value}");
         }
 
         private void Start()
@@ -575,7 +593,7 @@ namespace KKBridge
             Image titleBarImage = titleBarObj.AddComponent<Image>();
             titleBarImage.color = titleBarColor;
             var dragger = titleBarObj.AddComponent<DraggableWindow>();
-            dragger.targetRect = borderRect;
+            dragger.TargetRect = borderRect;
             RectTransform titleBarRect = titleBarObj.GetComponent<RectTransform>();
             titleBarRect.anchorMin = new Vector2(0, 1);
             titleBarRect.anchorMax = new Vector2(1, 1);
@@ -822,11 +840,11 @@ namespace KKBridge
             while (current != null)
             {
                 // 檢查是否是角色根部的常見標識
-                if (current.name.StartsWith("chaF_") ||
+                if (current.name.StartsWith("chaF_", StringComparison.Ordinal) ||
                     current.name.Contains("armature") ||
                     current.name.Contains("Armature") ||
                     current.name == "BodyTop" ||
-                    (current.parent != null && current.parent.name.StartsWith("chaF_")))
+                    (current.parent != null && current.parent.name.StartsWith("chaF_", StringComparison.Ordinal)))
                 {
                     return current;
                 }
@@ -888,28 +906,6 @@ namespace KKBridge
             float localAngle, worldAngle;
             bone.localRotation.ToAngleAxis(out localAngle, out localAxis);
             bone.rotation.ToAngleAxis(out worldAngle, out worldAxis);
-
-            // 計算四元數的大小和平方大小
-            float localQuatMag = bone.localRotation.magnitude();
-            float worldQuatMag = bone.rotation.magnitude();
-            float localQuatSqrMag = bone.localRotation.sqrMagnitude();
-            float worldQuatSqrMag = bone.rotation.sqrMagnitude();
-
-            // 計算正規化的四元數
-            Quaternion localNormalized = bone.localRotation.normalized();
-            Quaternion worldNormalized = bone.rotation.normalized();
-
-            // 計算共軛四元數
-            Quaternion localConjugate = bone.localRotation.conjugated();
-            Quaternion worldConjugate = bone.rotation.conjugated();
-
-            // 計算逆四元數
-            Quaternion localInverse = Quaternion.Inverse(bone.localRotation);
-            Quaternion worldInverse = Quaternion.Inverse(bone.rotation);
-
-            // 計算變換矩陣的行列式 (用於檢測是否有翻轉)
-            Matrix4x4 localToWorldMatrix = bone.localToWorldMatrix;
-            Matrix4x4 worldToLocalMatrix = bone.worldToLocalMatrix;
 
             // 計算與父骨骼的相對資訊
             string parentInfo = bone.parent != null ? bone.parent.name : "None";
@@ -988,7 +984,6 @@ namespace KKBridge
             Log.LogInfo($"Found {characters.Count} character(s). Starting export process...");
 
             // --- 準備VMD導出 ---
-            var exporter = new VmdExporter();
             string outputDirectory = _outputDirectory.Value;
             try
             {
@@ -1033,12 +1028,7 @@ namespace KKBridge
                 var boneReportBuilder = new StringBuilder();
                 TraverseBones(boneRoot, "", boneReportBuilder);
 
-                string txtFileName = $"{charIndex}_{charName}.txt";
-                // 清理txt檔案名稱中的非法字元
-                foreach (char c in Path.GetInvalidFileNameChars())
-                {
-                    txtFileName = txtFileName.Replace(c.ToString(), "");
-                }
+                string txtFileName = CreateSafeFileName(charIndex, "_", charName, ".txt");
                 string txtFilePath = Path.Combine(outputDirectory, txtFileName);
 
                 try
@@ -1085,17 +1075,12 @@ namespace KKBridge
                 }
                 ikFrames.Add(ikFrame);
 
-                string vmdFileName = $"{charIndex}_{charName}.vmd";
-                // 清理vmd檔案名稱中的非法字元
-                foreach (char c in Path.GetInvalidFileNameChars())
-                {
-                    vmdFileName = vmdFileName.Replace(c.ToString(), "");
-                }
+                string vmdFileName = CreateSafeFileName(charIndex, "_", charName, ".vmd");
                 string vmdFilePath = Path.Combine(outputDirectory, vmdFileName);
 
                 try
                 {
-                    exporter.Export(vmdFrames, ikFrames, "KoikatsuModel", vmdFilePath);
+                    VmdExporter.Export(vmdFrames, ikFrames, "KoikatsuModel", vmdFilePath);
                     Log.LogInfo($"Successfully exported VMD for character {charIndex} to: {vmdFilePath}");
                 }
                 catch (Exception e)
@@ -1180,16 +1165,9 @@ namespace KKBridge
                     float currentTime = TimelineCompatibility.GetPlaybackTime();
 
                     // 檢測是否發生了時間倒退(例如循環播放)
-                    if (previousTime >= 0 && currentTime < previousTime)
+                    if (currentTime <= previousTime)
                     {
                         Log.LogInfo($"檢測到 Timeline 循環或時間倒退，停止錄製角色 {charName}");
-                        break;
-                    }
-
-                    // 檢測是否已經達到或超過結束時間
-                    if (currentTime >= timelineDuration)
-                    {
-                        Log.LogInfo($"Timeline 播放完畢，停止錄製角色 {charName}");
                         break;
                     }
 
@@ -1214,7 +1192,6 @@ namespace KKBridge
                 Log.LogInfo($"角色 {charName} 的所有影格數據收集完畢 ({allFramesData.Count} 條記錄)。");
 
                 // ** 檔案匯出 **
-                var exporter = new VmdExporter();
                 string outputDirectory = _outputDirectory.Value;
                 Directory.CreateDirectory(outputDirectory);
 
@@ -1239,17 +1216,12 @@ namespace KKBridge
                     ikFrames[0].IkEnables.Add(new VmdIkEnable(ikName, false));
                 }
 
-                // ** 使用包含編號的檔名 **
-                string vmdFileName = $"{charIndex}_{charName}_timeline.vmd";
-                foreach (char c in Path.GetInvalidFileNameChars())
-                {
-                    vmdFileName = vmdFileName.Replace(c.ToString(), "");
-                }
+                string vmdFileName = CreateSafeFileName(charIndex, "_", charName, "_timeline", ".vmd");
                 string vmdFilePath = Path.Combine(outputDirectory, vmdFileName);
 
                 try
                 {
-                    exporter.Export(allFramesData, ikFrames, "KoikatsuModel", vmdFilePath);
+                    VmdExporter.Export(allFramesData, ikFrames, "KoikatsuModel", vmdFilePath);
                     Log.LogInfo($"成功導出 VMD 動畫到: {vmdFilePath}");
                 }
                 catch (Exception e)
@@ -1561,5 +1533,44 @@ namespace KKBridge
                 TraverseBones(child, indent + "  ", builder);
             }
         }
+
+        #region Helper Methods (輔助函式區)
+
+        /// <summary>
+        /// 將一系列物件（字串、數字等）組合並清理成一個安全的檔案名稱。
+        /// </summary>
+        /// <param name="parts">要組合成檔名的各個部分。</param>
+        /// <returns>一個不包含任何無效檔案字元的安全檔名。</returns>
+        private static string CreateSafeFileName(params object[] parts)
+        {
+            // --- 步驟 1: 將所有傳入的參數組合成一個單一字串 ---
+            // 使用 StringBuilder 提高效率
+            var rawNameBuilder = new StringBuilder();
+            foreach (object part in parts)
+            {
+                if (part != null)
+                {
+                    // 使用 CultureInfo.InvariantCulture 確保數字等類型轉換為字串時格式一致
+                    rawNameBuilder.Append(string.Format(CultureInfo.InvariantCulture, "{0}", part));
+                }
+            }
+            string rawFileName = rawNameBuilder.ToString();
+
+            // --- 步驟 2: 移除組合後字串中的所有無效檔案字元 ---
+            var safeNameBuilder = new StringBuilder(rawFileName.Length);
+            // 預先獲取一次無效字元陣列
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+            foreach (char c in rawFileName)
+            {
+                // 如果字元不是無效字元，則附加到最終結果中
+                if (Array.IndexOf(invalidChars, c) < 0)
+                {
+                    safeNameBuilder.Append(c);
+                }
+            }
+
+            return safeNameBuilder.ToString();
+        }
+        #endregion
     }
 }
