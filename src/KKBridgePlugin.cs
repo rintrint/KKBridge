@@ -357,20 +357,34 @@ namespace KKBridge
         private GameObject _uiPanel;
         private static Vector2 _uiPanelPosition = new Vector2(-Screen.width * 0.5f + 300, 100f);
         private ConfigEntry<KeyboardShortcut> _toggleWindowHotkey;
+        private ConfigEntry<string> _outputDirectory;
 
         private void Awake()
         {
             Log = base.Logger;
 
-            _toggleWindowHotkey = Config.Bind(
-                "1. Hotkeys", // 在設定視窗中的分類
-                "Toggle Window", // 設定的名稱
-                new KeyboardShortcut(KeyCode.F7), // 預設的快捷鍵
-                "Toggles the KKBridge window." // 滑鼠懸停時顯示的說明文字
-            );
+            // --- 設定快捷鍵 ---
+            {
+                _toggleWindowHotkey = Config.Bind(
+                    "Hotkeys Settings", // 設定的小分類
+                    "Toggle Window", // 設定的名稱
+                    new KeyboardShortcut(KeyCode.F7), // 預設值
+                    "Toggles the KKBridge window." // 滑鼠懸停時顯示的說明文字
+                );
+
+                string defaultOutputPath = Path.Combine(BepInEx.Paths.PluginPath, "KKBridge");
+                defaultOutputPath = Path.Combine(defaultOutputPath, "out");
+                _outputDirectory = Config.Bind(
+                    "Export Settings", // 設定的小分類
+                    "Output Directory", // 設定的名稱
+                    defaultOutputPath, // 預設值
+                    "Export destination folder." // 滑鼠懸停時顯示的說明文字
+                );
+            }
 
             Log.LogInfo("KKBridge Plugin loaded!");
             Log.LogInfo($" - Press {_toggleWindowHotkey.Value} to toggle the UI window.");
+            Log.LogInfo($" - Output Directory: {_outputDirectory.Value}");
         }
 
         private void Start()
@@ -392,8 +406,6 @@ namespace KKBridge
 
         private void ToggleKkBridgeWindow()
         {
-            Log.LogInfo("KKBridge Button Clicked!");
-
             // 在打開/創建視窗前，先檢查並銷毀所有舊的
             GameObject[] existingPanels = GameObject.FindObjectsOfType<GameObject>().Where(go => go.name == "KKBridgeCanvas").ToArray();
             if (existingPanels.Length > 0)
@@ -406,8 +418,8 @@ namespace KKBridge
                     RectTransform panelRect = panelTransform.GetComponent<RectTransform>();
                     if (panelRect != null)
                     {
+                        // 記住關閉前的視窗位置
                         _uiPanelPosition = panelRect.anchoredPosition;
-                        Log.LogInfo($"[UIPanel] 記住視窗位置: {_uiPanelPosition}");
                     }
                 }
 
@@ -977,7 +989,7 @@ namespace KKBridge
 
             // --- 準備VMD導出 ---
             var exporter = new VmdExporter();
-            string outputDirectory = "C:\\Users\\user\\Desktop\\out";
+            string outputDirectory = _outputDirectory.Value;
             try
             {
                 // 步驟 1: 確保目標資料夾存在，如果不存在就建立它
@@ -1167,10 +1179,10 @@ namespace KKBridge
 
                     float currentTime = TimelineCompatibility.GetPlaybackTime();
 
-                    // 檢測是否發生了時間倒退（循環）
+                    // 檢測是否發生了時間倒退(例如循環播放)
                     if (previousTime >= 0 && currentTime < previousTime)
                     {
-                        Log.LogInfo($"檢測到 Timeline 循環，停止錄製角色 {charName}");
+                        Log.LogInfo($"檢測到 Timeline 循環或時間倒退，停止錄製角色 {charName}");
                         break;
                     }
 
@@ -1203,7 +1215,7 @@ namespace KKBridge
 
                 // ** 檔案匯出 **
                 var exporter = new VmdExporter();
-                string outputDirectory = "C:\\Users\\user\\Desktop\\out";
+                string outputDirectory = _outputDirectory.Value;
                 Directory.CreateDirectory(outputDirectory);
 
                 var ikFrames = new List<VmdIkFrame> { new VmdIkFrame { FrameNumber = 0, Display = true } };
