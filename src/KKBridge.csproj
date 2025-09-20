@@ -88,8 +88,11 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>
-copy /y KKBridge.dll "D:\KK\Koikatu\BepInEx\scripts"
-copy /y KKBridge.pdb "D:\KK\Koikatu\BepInEx\scripts"
+if exist "$(DeployPath)\" (
+    copy /y "$(TargetDir)$(TargetName).dll" "$(DeployPath)"
+    copy /y "$(TargetDir)$(TargetName).pdb" "$(DeployPath)"
+    echo Files copied to $(DeployPath)
+)
 </PostBuildEvent>
   </PropertyGroup>
 </Project>
