@@ -121,6 +121,7 @@ namespace KKBridge
         private static readonly Dictionary<string, BoneMappingInfo> _kkToMmdMap = new Dictionary<string, BoneMappingInfo>
         {
             { "chaF_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
+            { "chaM_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
             { "cf_j_hips",          new BoneMappingInfo("センター", new Quaternion(-0.000000044f, 0.000000044f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f,-1.000000000f, 0.000000000f,-0.000000044f)) },
             { "EyeTargetL",         new BoneMappingInfo("左目",     new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.561309993f,-0.577732265f,-0.416540653f, 0.421486050f)) },
             { "EyeTargetR",         new BoneMappingInfo("右目",     new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion(-0.416540563f, 0.421486050f, 0.561309993f,-0.577732265f)) },
@@ -714,14 +715,14 @@ namespace KKBridge
                 Transform parentPanel = GameObject.Find("StudioScene/Canvas System Menu/01_Button")?.transform;
                 if (parentPanel == null || parentPanel.childCount == 0)
                 {
-                    Log.LogError("[KKBridgeButton] ERROR: 找不到UI面板 '.../01_Button'。");
+                    Log.LogError("[KKBridgeButton] ERROR: Could not find the UI panel '.../01_Button'.");
                     yield break;
                 }
 
                 Texture2D iconTexture = LoadImageFromAssembly("KKBridge.Resources.Icon.png");
                 if (iconTexture == null)
                 {
-                    Log.LogError("[KKBridgeButton] ERROR: 無法從 DLL 中載入嵌入的資源 'KKBridge.Resources.Icon.png'。");
+                    Log.LogError("[KKBridgeButton] ERROR: Failed to load embedded resource 'KKBridge.Resources.Icon.png' from DLL.");
                     yield break;
                 }
 
@@ -764,7 +765,7 @@ namespace KKBridge
             }
             catch (Exception e)
             {
-                Log.LogError($"[KKBridgeButton] CRITICAL ERROR: 添加按鈕時發生錯誤: {e.ToString()}");
+                Log.LogError($"[KKBridgeButton] CRITICAL ERROR: An error occurred while adding the button: {e.ToString()}");
             }
         }
 
@@ -799,7 +800,7 @@ namespace KKBridge
             }
             catch (Exception ex)
             {
-                Log.LogError($"從 Assembly 載入圖片時出錯: {ex.Message}");
+                Log.LogError($"Error loading image from Assembly: {ex.Message}");
                 return null;
             }
         }
@@ -837,15 +838,16 @@ namespace KKBridge
         {
             Transform current = bone;
 
-            // 向上遍歷找到角色根部或包含 "chaF_" 的節點
+            // 向上遍歷找到角色根部或包含 "chaF_" 或 "chaM_" 的節點
             while (current != null)
             {
                 // 檢查是否是角色根部的常見標識
                 if (current.name.StartsWith("chaF_", StringComparison.Ordinal) ||
+                    current.name.StartsWith("chaM_", StringComparison.Ordinal) ||
                     current.name.Contains("armature") ||
                     current.name.Contains("Armature") ||
                     current.name == "BodyTop" ||
-                    (current.parent != null && current.parent.name.StartsWith("chaF_", StringComparison.Ordinal)))
+                    (current.parent != null && (current.parent.name.StartsWith("chaF_", StringComparison.Ordinal) || current.parent.name.StartsWith("chaM_", StringComparison.Ordinal))))
                 {
                     return current;
                 }
@@ -986,26 +988,7 @@ namespace KKBridge
 
             // --- 準備VMD導出 ---
             string outputDirectory = _outputDirectory.Value;
-            try
-            {
-                // 步驟 1: 確保目標資料夾存在，如果不存在就建立它
-                Directory.CreateDirectory(outputDirectory);
-                // 步驟 2: 清空資料夾內的所有內容
-                DirectoryInfo di = new DirectoryInfo(outputDirectory);
-                foreach (FileInfo file in di.GetFiles())
-                {
-                    file.Delete();
-                }
-                foreach (DirectoryInfo dir in di.GetDirectories())
-                {
-                    dir.Delete(true);
-                }
-            }
-            catch (Exception e)
-            {
-                Log.LogError($"Could not create or clear output directory '{outputDirectory}'. Error: {e.Message}");
-                return;
-            }
+            Directory.CreateDirectory(outputDirectory);
 
             int charIndex = 1;
             // --- 遍歷所有角色，為每個角色分別導出 VMD 和 TXT ---
@@ -1116,11 +1099,11 @@ namespace KKBridge
                 // --- 階段一：準備工作 ---
                 _isExporting = true;
                 if (_exportButtonText != null) _exportButtonText.text = "Exporting...";
-                Log.LogInfo("開始導出 Timeline 動畫...");
+                Log.LogInfo("Starting Timeline animation export...");
 
                 if (!TimelineCompatibility.Init())
                 {
-                    Log.LogError("Timeline 插件未找到或初始化失敗。無法導出動畫。");
+                    Log.LogError("Timeline plugin not found or failed to initialize. Cannot export animation.");
                     _isExporting = false;
                     yield break;
                 }
@@ -1129,7 +1112,7 @@ namespace KKBridge
                 var characters = studioInstance.dicObjectCtrl.Values.OfType<OCIChar>().ToList();
                 if (!characters.Any())
                 {
-                    Log.LogWarning("場景中沒有角色，導出取消。");
+                    Log.LogWarning("No characters in the scene, export cancelled.");
                     _isExporting = false;
                     yield break;
                 }
@@ -1139,11 +1122,11 @@ namespace KKBridge
                 float timelineDuration = TimelineCompatibility.GetDuration();
                 if (timelineDuration <= 0)
                 {
-                    Log.LogWarning("Timeline 長度為 0 或無效，導出取消。");
+                    Log.LogWarning("Timeline duration is 0 or invalid, export cancelled.");
                     _isExporting = false;
                     yield break;
                 }
-                Log.LogInfo($"Timeline 長度: {timelineDuration:F2} 秒 (at {fps}fps) for {characters.Count} character(s).");
+                Log.LogInfo($"Timeline duration: {timelineDuration:F2} seconds (at {fps}fps) for {characters.Count} character(s).");
 
                 // 儲存並設定 Time.captureFramerate
                 originalCaptureFramerate = Time.captureFramerate;
@@ -1161,7 +1144,7 @@ namespace KKBridge
                     var chaCtrl = ociChar.charInfo;
                     var boneRoot = chaCtrl.transform;
                     string charName = chaCtrl.chaFile.parameter.fullname;
-                    Log.LogInfo($"--- 開始處理角色 {charIndex}: {charName} ---");
+                    Log.LogInfo($"--- Started processing character {charIndex}: {charName} ---");
 
                     var allFramesData = new List<VmdMotionFrame>();
 
@@ -1179,10 +1162,10 @@ namespace KKBridge
 
                         float currentTime = TimelineCompatibility.GetPlaybackTime();
 
-                        // 檢測是否發生了時間倒退(例如循環播放)
+                        // 檢測是否發生了循環播放、時間倒退、暫停播放
                         if (currentTime <= previousTime)
                         {
-                            Log.LogInfo($"檢測到 Timeline 循環、時間倒退或暫停，停止錄製角色 {charName}");
+                            Log.LogInfo($"Detected Timeline loop, time rollback, or pause. Stopping recording for character {charName}");
                             break;
                         }
 
@@ -1197,14 +1180,14 @@ namespace KKBridge
 
                         if (charIndex == 1 && (currentFrame % 100 == 0))
                         {
-                            Log.LogInfo($"正在推進影格: {currentFrame + 1}, 當前時間: {currentTime:F2}s / {timelineDuration:F2}s");
+                            Log.LogInfo($"Advancing frame: {currentFrame + 1}, Current time: {currentTime:F2}s / {timelineDuration:F2}s");
                         }
 
                         previousTime = currentTime;
                         currentFrame++;
                     }
 
-                    Log.LogInfo($"角色 {charName} 的所有影格數據收集完畢 ({allFramesData.Count} 條記錄)。");
+                    Log.LogInfo($"Finished collecting all frame data for character {charName} ({currentFrame} frames).");
 
                     // ** 檔案匯出 **
                     string outputDirectory = _outputDirectory.Value;
@@ -1237,11 +1220,11 @@ namespace KKBridge
                     try
                     {
                         VmdExporter.Export(allFramesData, ikFrames, "KoikatsuModel", vmdFilePath);
-                        Log.LogInfo($"成功導出 VMD 動畫到: {vmdFilePath}");
+                        Log.LogInfo($"Successfully exported VMD animation to: {vmdFilePath}");
                     }
                     catch (Exception e)
                     {
-                        Log.LogError($"為角色 {charName} 導出 VMD 失敗: {e.Message}");
+                        Log.LogError($"Failed to export VMD for character {charName}: {e.Message}");
                     }
 
                     charIndex++;
@@ -1264,7 +1247,7 @@ namespace KKBridge
                 {
                     _exportButtonText.text = "Export Timeline to VMD";
                 }
-                Log.LogInfo("所有角色的 Timeline 動畫導出完成。");
+                Log.LogInfo("Timeline animation export for all characters completed.");
             }
         }
 
