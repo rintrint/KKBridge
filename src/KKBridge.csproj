@@ -25,7 +25,7 @@
     <RunCodeAnalysis>false</RunCodeAnalysis>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
+    <DebugType>embedded</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
@@ -88,8 +88,25 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>
-copy /y KKBridge.dll "D:\KK\Koikatu\BepInEx\scripts"
-copy /y KKBridge.pdb "D:\KK\Koikatu\BepInEx\scripts"
+echo Copying files to DeployPath...
+if not "$(DeployPath)"=="" (
+    if exist "$(DeployPath)\" (
+        echo DeployPath is set to "$(DeployPath)". Copying files...
+        xcopy /y /f "$(TargetDir)$(TargetName).dll" "$(DeployPath)\"
+        if exist "$(TargetDir)$(TargetName).pdb" (
+            xcopy /y /f "$(TargetDir)$(TargetName).pdb" "$(DeployPath)\"
+        ) else (
+            if exist "$(DeployPath)\$(TargetName).pdb" (
+                del "$(DeployPath)\$(TargetName).pdb"
+                echo Deleted old pdb file to avoid contamination: "$(DeployPath)\$(TargetName).pdb"
+            )
+        )
+    ) else (
+        echo Warning: DeployPath is set to "$(DeployPath)", but the directory does not exist. Skipped copy.
+    )
+) else (
+    echo DeployPath is not set. Skipped copy.
+)
 </PostBuildEvent>
   </PropertyGroup>
 </Project>

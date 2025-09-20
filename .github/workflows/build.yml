@@ -1,0 +1,39 @@
+name: Build KKBridge Plugin
+
+on: [push, pull_request, workflow_dispatch]
+
+env:
+  SOLUTION_FILE_PATH: src/KKBridge.sln
+  BUILD_CONFIGURATION: Release
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1
+        with:
+          vs-version: "17.0"
+
+      - name: Build the solution
+        run: |
+          msbuild /m /nr:false /p:UseSharedCompilation=false /p:Configuration=${{ env.BUILD_CONFIGURATION }} ${{ env.SOLUTION_FILE_PATH }}
+
+      - name: Prepare package for upload
+        shell: bash
+        run: |
+          mkdir -p artifact
+          RELEASE_DIR="src/bin/${{ env.BUILD_CONFIGURATION }}"
+
+          echo "Copying all files from $RELEASE_DIR to artifact/"
+          cp "$RELEASE_DIR"/* artifact/
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: KKBridge_Build_${{ github.run_number }}
+          path: artifact/
