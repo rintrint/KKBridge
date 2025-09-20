@@ -72,6 +72,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace KKBridge
@@ -424,11 +425,44 @@ namespace KKBridge
     }
     #endregion
 
-    [BepInPlugin("056863B2-6F22-4285-9CA6-8860C80029E0", "KKBridge Plugin", "1.0.0")]
+    /// <summary>
+    /// 輔助類別，處理 UGUI 視窗的拖動
+    /// </summary>
+    public class DraggableWindow : MonoBehaviour, IPointerDownHandler, IDragHandler
+    {
+        private Vector2 _offset;
+        public RectTransform targetRect;
+
+        private void Awake()
+        {
+            // 如果未指定拖動目標，則預設為父物件
+            if (targetRect == null)
+            {
+                targetRect = transform.parent.GetComponent<RectTransform>();
+            }
+        }
+
+        public void OnPointerDown(PointerEventData eventData)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(targetRect, eventData.position, eventData.pressEventCamera, out _offset);
+        }
+
+        public void OnDrag(PointerEventData eventData)
+        {
+            if (targetRect == null) return;
+
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(targetRect.parent as RectTransform, eventData.position, eventData.pressEventCamera, out Vector2 localPointerPosition);
+            targetRect.localPosition = localPointerPosition - _offset;
+        }
+    }
+
+    [BepInPlugin("com.rintrint.kkbridge", "KKBridge Plugin", "1.0.0")]
     public class KKBridgePlugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
         private bool _isExporting = false;
+        private GameObject _uiPanel;
+        private static Vector2 _uiPanelPosition = new Vector2(-Screen.width * 0.5f + 300, 100f);
 
         private void Awake()
         {
@@ -454,11 +488,282 @@ namespace KKBridge
             }
         }
 
+        // OnBridgeButtonClicked 方法修改為：
         private void OnBridgeButtonClicked()
         {
-            Log.LogInfo("KKBridge Button Clicked! Starting export...");
-            ExportAllData();
+            Log.LogInfo("KKBridge Button Clicked!");
+
+            // 在打開/創建視窗前，先檢查並銷毀所有舊的
+            GameObject[] existingPanels = GameObject.FindObjectsOfType<GameObject>().Where(go => go.name == "KKBridgeCanvas").ToArray();
+            if (existingPanels.Length > 0)
+            {
+                // 記住最後一個面板的位置
+                GameObject lastPanel = existingPanels[existingPanels.Length - 1];
+                Transform panelTransform = lastPanel.transform.Find("KKBridgeBorderPanel");
+                if (panelTransform != null)
+                {
+                    RectTransform panelRect = panelTransform.GetComponent<RectTransform>();
+                    if (panelRect != null)
+                    {
+                        _uiPanelPosition = panelRect.anchoredPosition;
+                        Log.LogInfo($"[UIPanel] 記住視窗位置: {_uiPanelPosition}");
+                    }
+                }
+
+                foreach (GameObject panel in existingPanels)
+                {
+                    Destroy(panel);
+                }
+                _uiPanel = null; // 清空引用
+                return;
+            }
+
+            // 如果面板不存在 (或剛被銷毀)，就創建它
+            if (_uiPanel == null)
+            {
+                CreateUIPanel();
+            }
+            else // 這個分支在當前邏輯下不會被觸發，但保留以備未來修改
+            {
+                _uiPanel.SetActive(!_uiPanel.activeSelf);
+            }
         }
+
+        #region UI 圓角效果相關方法
+
+        /// <summary>
+        /// 為 UI 元素替換圓角 Sprite (純視覺，無裁剪功能)
+        /// </summary>
+        private void ApplyRoundedSprite(GameObject target, float cornerRadius)
+        {
+            // 獲取或添加 Image 元件
+            Image image = target.GetComponent<Image>();
+            if (image == null)
+            {
+                image = target.AddComponent<Image>();
+            }
+
+            // 將 Image 的 Sprite 設置為我們創建的圓角 Sprite
+            image.sprite = CreateRoundedSprite((int)cornerRadius);
+            image.type = Image.Type.Sliced; // 使用 Sliced 模式確保圓角在縮放時不變形
+        }
+
+        /// <summary>
+        /// 創建圓角 Sprite
+        /// </summary>
+        private Sprite CreateRoundedSprite(int cornerRadius)
+        {
+            int size = cornerRadius * 4;
+            Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+
+            // 創建像素陣列
+            Color32[] pixels = new Color32[size * size];
+
+            // 填充圓角矩形
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    bool shouldFill = true;
+
+                    // 檢查四個角
+                    Vector2 center = Vector2.zero;
+                    float distance = 0f;
+
+                    // 左下角
+                    if (x < cornerRadius && y < cornerRadius)
+                    {
+                        center = new Vector2(cornerRadius - 0.5f, cornerRadius - 0.5f);
+                        distance = Vector2.Distance(new Vector2(x, y), center);
+                        shouldFill = distance <= cornerRadius;
+                    }
+                    // 右下角
+                    else if (x >= size - cornerRadius && y < cornerRadius)
+                    {
+                        center = new Vector2(size - cornerRadius - 0.5f, cornerRadius - 0.5f);
+                        distance = Vector2.Distance(new Vector2(x, y), center);
+                        shouldFill = distance <= cornerRadius;
+                    }
+                    // 左上角
+                    else if (x < cornerRadius && y >= size - cornerRadius)
+                    {
+                        center = new Vector2(cornerRadius - 0.5f, size - cornerRadius - 0.5f);
+                        distance = Vector2.Distance(new Vector2(x, y), center);
+                        shouldFill = distance <= cornerRadius;
+                    }
+                    // 右上角
+                    else if (x >= size - cornerRadius && y >= size - cornerRadius)
+                    {
+                        center = new Vector2(size - cornerRadius - 0.5f, size - cornerRadius - 0.5f);
+                        distance = Vector2.Distance(new Vector2(x, y), center);
+                        shouldFill = distance <= cornerRadius;
+                    }
+
+                    // 重點修改：直角部分設為完全透明
+                    pixels[y * size + x] = shouldFill ? Color.white : Color.clear;
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply();
+
+            // 創建帶有邊框設定的 Sprite
+            Vector4 border = new Vector4(cornerRadius, cornerRadius, cornerRadius, cornerRadius);
+            return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, border);
+        }
+        #endregion
+
+        #region UI 創建相關方法
+
+        private void CreateUIPanel()
+        {
+            Color panelBackgroundColor = new Color32(214, 214, 214, 255);
+            Color titleBarColor = new Color32(82, 82, 78, 255);
+            Color borderColor = new Color32(60, 60, 60, 255);
+            Color buttonBackgroundColor = new Color32(125, 125, 125, 255);
+            Color titleTextColor = Color.white;
+            Color buttonTextColor = Color.white;
+
+            // 1. 創建 Canvas
+            GameObject canvasObj = new GameObject("KKBridgeCanvas");
+            Canvas canvas = canvasObj.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 0;
+            canvasObj.AddComponent<CanvasScaler>();
+            canvasObj.AddComponent<GraphicRaycaster>();
+            _uiPanel = canvasObj;
+
+            // 視窗大小
+            int panelWidth = 300;
+            int panelHeight = 200;
+            int titleBarHeight = 35;
+
+            // 2. 創建外邊框 (使用最簡單的父子結構)
+            GameObject borderObj = new GameObject("KKBridgeBorderPanel");
+            borderObj.transform.SetParent(canvasObj.transform, false);
+            Image borderImage = borderObj.AddComponent<Image>();
+            borderImage.color = borderColor;
+            RectTransform borderRect = borderObj.GetComponent<RectTransform>();
+            borderRect.sizeDelta = new Vector2(panelWidth, panelHeight);
+            borderRect.anchoredPosition = _uiPanelPosition;
+
+            // 3. 創建主面板
+            GameObject panelObj = new GameObject("KKBridgePanel");
+            panelObj.transform.SetParent(borderObj.transform, false);
+            Image panelImage = panelObj.AddComponent<Image>();
+            panelImage.color = panelBackgroundColor;
+            RectTransform panelRect = panelObj.GetComponent<RectTransform>();
+            panelRect.sizeDelta = new Vector2(panelWidth - 6, panelHeight - 6);
+            panelRect.anchoredPosition = Vector2.zero;
+
+            // 4. 創建 TitleBar
+            GameObject titleBarObj = new GameObject("TitleBar");
+            titleBarObj.transform.SetParent(panelObj.transform, false);
+            Image titleBarImage = titleBarObj.AddComponent<Image>();
+            titleBarImage.color = titleBarColor;
+            var dragger = titleBarObj.AddComponent<DraggableWindow>();
+            dragger.targetRect = borderRect;
+            RectTransform titleBarRect = titleBarObj.GetComponent<RectTransform>();
+            titleBarRect.anchorMin = new Vector2(0, 1);
+            titleBarRect.anchorMax = new Vector2(1, 1);
+            titleBarRect.pivot = new Vector2(0.5f, 1);
+            titleBarRect.sizeDelta = new Vector2(0, titleBarHeight);
+            titleBarRect.anchoredPosition = new Vector2(0, 0);
+
+            // 標題文字
+            GameObject titleTextObj = new GameObject("TitleText");
+            titleTextObj.transform.SetParent(titleBarObj.transform, false);
+            Text titleText = titleTextObj.AddComponent<Text>();
+            titleText.text = "KKBridge";
+            titleText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            titleText.resizeTextForBestFit = true;
+            titleText.alignment = TextAnchor.MiddleCenter;
+            titleText.color = titleTextColor;
+            RectTransform titleTextRect = titleTextObj.transform as RectTransform;
+            titleTextRect.anchorMin = Vector2.zero;
+            titleTextRect.anchorMax = Vector2.one;
+            titleTextRect.sizeDelta = Vector2.zero;
+            titleTextRect.anchoredPosition = Vector2.zero;
+
+            // 5. 創建按鈕
+            var exportAnimButton = CreateUIPanelButton("ExportAnimButton", panelObj.transform, "Export Timeline to VMD", new Vector2(0, 70 - titleBarHeight), buttonBackgroundColor, buttonTextColor, () => { if (!_isExporting) StartCoroutine(ExportTimelineAnimation_Coroutine()); });
+            // var exportPoseButton = CreateUIPanelButton("ExportPoseButton", panelObj.transform, "Export Current Pose to VMD", new Vector2(0, 20 - titleBarHeight), buttonBackgroundColor, buttonTextColor, () => { ExportAllData(); });
+
+            // 6. 創建關閉按鈕
+            GameObject closeButtonObj = new GameObject("CloseButton");
+            closeButtonObj.transform.SetParent(panelObj.transform, false);
+            Image closeButtonImage = closeButtonObj.AddComponent<Image>();
+            closeButtonImage.color = buttonBackgroundColor;
+            Button closeButton = closeButtonObj.AddComponent<Button>();
+            closeButton.onClick.AddListener(() => { _uiPanel.SetActive(false); });
+            RectTransform closeButtonRect = closeButtonObj.GetComponent<RectTransform>();
+            closeButtonRect.anchorMin = new Vector2(1, 1);
+            closeButtonRect.anchorMax = new Vector2(1, 1);
+            closeButtonRect.pivot = new Vector2(1, 1);
+            closeButtonRect.sizeDelta = new Vector2(24, 24);
+            closeButtonRect.anchoredPosition = new Vector2(-5, -5);
+
+            GameObject closeTextObj = new GameObject("CloseText");
+            closeTextObj.transform.SetParent(closeButtonObj.transform, false);
+            Text closeText = closeTextObj.AddComponent<Text>();
+            closeText.text = "X";
+            closeText.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            closeText.resizeTextForBestFit = true;
+            closeText.alignment = TextAnchor.MiddleCenter;
+            closeText.color = titleTextColor;
+            RectTransform closeTextRect = closeTextObj.transform as RectTransform;
+            closeTextRect.anchorMin = Vector2.zero;
+            closeTextRect.anchorMax = Vector2.one;
+            closeTextRect.sizeDelta = Vector2.zero;
+
+            // 7. 應用圓角 Sprite
+            ApplyRoundedSprite(borderObj, 6f);      // 邊框圓角 (半徑可自行調整)
+            ApplyRoundedSprite(panelObj, 4f);       // 主面板圓角
+            ApplyRoundedSprite(titleBarObj, 4f);     // 標題欄圓角 (只會圓潤頂部，因為底部被面板覆蓋)
+            ApplyRoundedSprite(closeButtonObj, 2f);  // 關閉按鈕圓角
+
+            // 注意：CreateUIPanelButton 內部呼叫了 AddRoundedCorners，
+            // 你需要將其內部呼叫也改為 ApplyRoundedSprite。
+            // 我已在下面幫你更新 CreateUIPanelButton 的程式碼。
+        }
+
+        /// <summary>
+        /// 創建面板按鈕的輔助方法
+        /// </summary>
+        private GameObject CreateUIPanelButton(string name, Transform parent, string buttonText, Vector2 position, Color bgColor, Color textColor, Action onClickAction)
+        {
+            GameObject buttonObj = new GameObject(name);
+            buttonObj.transform.SetParent(parent, false);
+
+            Image image = buttonObj.AddComponent<Image>();
+            image.color = bgColor;
+
+            Button button = buttonObj.AddComponent<Button>();
+            button.onClick.AddListener(() => { onClickAction?.Invoke(); });
+
+            RectTransform rect = buttonObj.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(280, 40);
+            rect.anchoredPosition = position;
+
+            GameObject textObj = new GameObject("Text");
+            textObj.transform.SetParent(buttonObj.transform, false);
+            Text text = textObj.AddComponent<Text>();
+            text.text = buttonText;
+            text.font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+            text.resizeTextForBestFit = true;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.color = textColor;
+            RectTransform textRect = textObj.transform as RectTransform;
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.sizeDelta = Vector2.zero;
+
+            // 為按鈕應用圓角 Sprite
+            ApplyRoundedSprite(buttonObj, 6f); // <<-- 已更新
+
+            return buttonObj;
+        }
+        #endregion
 
         private System.Collections.IEnumerator CreateKKBridgeButton_Coroutine()
         {
