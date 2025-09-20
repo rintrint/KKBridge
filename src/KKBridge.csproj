@@ -88,10 +88,17 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>
-if exist "$(DeployPath)\" (
-    copy /y "$(TargetDir)$(TargetName).dll" "$(DeployPath)"
-    copy /y "$(TargetDir)$(TargetName).pdb" "$(DeployPath)"
-    echo Files copied to $(DeployPath)
+echo Copying files to DeployPath...
+if not "$(DeployPath)"=="" (
+    if exist "$(DeployPath)\" (
+        echo DeployPath is set to "$(DeployPath)". Copying files...
+        copy /y "$(TargetDir)$(TargetName).dll" "$(DeployPath)"
+        copy /y "$(TargetDir)$(TargetName).pdb" "$(DeployPath)"
+    ) else (
+        echo Warning: DeployPath is set to "$(DeployPath)", but the directory does not exist. Skipped copy.
+    )
+) else (
+    echo DeployPath is not set. Skipped copy.
 )
 </PostBuildEvent>
   </PropertyGroup>
