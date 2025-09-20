@@ -120,8 +120,13 @@ namespace KKBridge
     {
         private static readonly Dictionary<string, BoneMappingInfo> _kkToMmdMap = new Dictionary<string, BoneMappingInfo>
         {
-            { "chaF_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
-            { "chaM_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
+            // 用戶可以調整的是 chaF_ 和 chaM_ 骨骼的旋轉
+            // 然而親子關係是 chaF_ cf_j_root cf_j_hips
+            // 中間還有cf_j_root，有的模型cf_j_root有扭轉
+            // 故映射cf_j_root，避免中間有骨骼影響結果
+            // { "chaF_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
+            // { "chaM_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
+            { "cf_j_root",          new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
             { "cf_j_hips",          new BoneMappingInfo("センター", new Quaternion(-0.000000044f, 0.000000044f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f,-1.000000000f, 0.000000000f,-0.000000044f)) },
             { "EyeTargetL",         new BoneMappingInfo("左目",     new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.561309993f,-0.577732265f,-0.416540653f, 0.421486050f)) },
             { "EyeTargetR",         new BoneMappingInfo("右目",     new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion(-0.416540563f, 0.421486050f, 0.561309993f,-0.577732265f)) },
@@ -414,6 +419,8 @@ namespace KKBridge
             // 插件載入後立即執行
             PrintSelectedBoneInfo();
             ExportAllData();
+            ToggleKkBridgeWindow();
+            ToggleKkBridgeWindow();
         }
 
         private void Update()
@@ -806,6 +813,15 @@ namespace KKBridge
         /// </summary>
         private void PrintSelectedBoneInfo()
         {
+            // 硬編碼骨骼選擇 - 取消註解下面這行來使用指定骨骼
+            Transform hardcodedBone = GameObject.Find("cf_j_hips")?.transform;
+            if (hardcodedBone != null)
+            {
+                PrintBoneInfo(hardcodedBone);
+                return;
+            }
+            //////////////////////////////////////////////
+
             // 透過 Singleton 獲取 GuideObject 管理器實例
             var guideObjectManager = Singleton<GuideObjectManager>.Instance;
             if (guideObjectManager == null)
@@ -985,6 +1001,24 @@ namespace KKBridge
             // --- 準備VMD導出 ---
             string outputDirectory = _outputDirectory.Value;
             Directory.CreateDirectory(outputDirectory);
+            // 清空資料夾內所有內容
+            try
+            {
+                DirectoryInfo di = new DirectoryInfo(outputDirectory);
+                foreach (FileInfo file in di.GetFiles())
+                {
+                    file.Delete();
+                }
+                foreach (DirectoryInfo dir in di.GetDirectories())
+                {
+                    dir.Delete(true);
+                }
+            }
+            catch (Exception e)
+            {
+                Log.LogError($"Could not create or clear output directory '{outputDirectory}'. Error: {e.Message}");
+                return;
+            }
 
             int charIndex = 1;
             // --- 遍歷所有角色，為每個角色分別導出 VMD 和 TXT ---
@@ -1097,7 +1131,7 @@ namespace KKBridge
             {
                 // --- 階段一：準備工作 ---
                 _isExporting = true;
-                if (_exportButtonText != null) _exportButtonText.text = "Exporting... Click to Cancel";
+                if (_exportButtonText != null) _exportButtonText.text = "Exporting...";
                 Log.LogInfo("Starting Timeline animation export...");
 
                 if (!TimelineCompatibility.Init())
@@ -1119,7 +1153,7 @@ namespace KKBridge
                 }
 
                 // 設定通用導出參數
-                const int fps = 60;
+                const int fps = 30;
                 float timelineDuration = TimelineCompatibility.GetDuration();
                 if (timelineDuration <= 0)
                 {
@@ -1342,13 +1376,35 @@ namespace KKBridge
             {
                 var frame = new VmdMotionFrame(mapInfo.MmdName);
 
+                const float mmdScaleFactor = 12.5f;
                 Vector3 relativePos;
+                Quaternion relativeRot;
+
                 if (mapInfo.MmdName == "全ての親")
                 {
                     // 根骨骼用 World Position
-                    const float mmdScaleFactor = 12.5f;
-                    Vector3 worldPos = bone.position;
-                    relativePos = new Vector3(-worldPos.x * mmdScaleFactor, worldPos.y * mmdScaleFactor, -worldPos.z * mmdScaleFactor);
+                    relativePos = bone.position;
+                    relativePos = new Vector3(-relativePos.x, relativePos.y, -relativePos.z);
+                    relativePos *= mmdScaleFactor;
+                }
+                else if (mapInfo.MmdName == "センター")
+                {
+                    relativePos = bone.localPosition;
+                    relativeRot = bone.localRotation;
+                    // 正規化: 減去 Koikatsu 靜止姿態的基礎偏移，讓 relativePos 只剩下「純粹的動畫位移」
+                    relativePos -= new Vector3(0, 1.1435f, 0);
+
+                    // 進行旋轉中心 (Pivot) 的補正計算，補正因旋轉中心不同而產生的動態位移
+                    {
+                        // PMX的センター高度:0.64
+                        //  KK的センター高度:1.1435
+                        // V = P_pmx(0.64) - P_kk(1.1435)
+                        Vector3 v = new Vector3(0, -0.5035f, 0);
+                        relativePos += (relativeRot * v) - v;
+                    }
+
+                    relativePos = new Vector3(-relativePos.x, relativePos.y, -relativePos.z);
+                    relativePos *= mmdScaleFactor;
                 }
                 else
                 {
@@ -1356,7 +1412,6 @@ namespace KKBridge
                     relativePos = new Vector3(0, 0, 0);
                 }
 
-                Quaternion relativeRot;
                 if (mapInfo.MmdName == "全ての親")
                 {
                     // 根骨骼用 World Rotation
@@ -1579,7 +1634,7 @@ namespace KKBridge
         #region Helper Methods (輔助函式區)
 
         /// <summary>
-        /// 將一系列物件（字串、數字等）組合並清理成一個安全的檔案名稱。
+        /// 將一系列物件 (字串、數字等) 組合並清理成一個安全的檔案名稱。
         /// </summary>
         /// <param name="parts">要組合成檔名的各個部分。</param>
         /// <returns>一個不包含任何無效檔案字元的安全檔名。</returns>
