@@ -62,6 +62,7 @@
 // ================================================================
 
 using BepInEx;
+using BepInEx.Configuration;
 using BepInEx.Logging;
 using KKBridge.Compatibility;
 using KKBridge.Extensions;
@@ -348,40 +349,48 @@ namespace KKBridge
         }
     }
 
-    [BepInPlugin("com.rintrint.kkbridge", "KKBridge Plugin", "1.0.0")]
+    [BepInPlugin("com.rintrint.kkbridge", "KKBridge", "0.0.1")]
     public class KKBridgePlugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
         private bool _isExporting = false;
         private GameObject _uiPanel;
         private static Vector2 _uiPanelPosition = new Vector2(-Screen.width * 0.5f + 300, 100f);
+        private ConfigEntry<KeyboardShortcut> _toggleWindowHotkey;
 
         private void Awake()
         {
             Log = base.Logger;
-            Log.LogInfo("KKBridge Plugin loaded! Press F7 to export all characters' VMD & bone info.");
+
+            _toggleWindowHotkey = Config.Bind(
+                "1. Hotkeys", // 在設定視窗中的分類
+                "Toggle Window", // 設定的名稱
+                new KeyboardShortcut(KeyCode.F7), // 預設的快捷鍵
+                "Toggles the KKBridge window." // 滑鼠懸停時顯示的說明文字
+            );
+
+            Log.LogInfo("KKBridge Plugin loaded!");
+            Log.LogInfo($" - Press {_toggleWindowHotkey.Value} to toggle the UI window.");
         }
 
         private void Start()
         {
             StartCoroutine(CreateKKBridgeButton_Coroutine());
 
-            // 插件載入後立即執行，和LateUpdate的方案只能二選一
+            // 插件載入後立即執行
             PrintSelectedBoneInfo();
             ExportAllData();
         }
 
         private void Update()
         {
-            // 按下 F8 且當前沒有正在導出的任務時，開始導出 Timeline 動畫
-            if (Input.GetKeyDown(KeyCode.F8) && !_isExporting)
+            if (_toggleWindowHotkey.Value.IsDown())
             {
-                StartCoroutine(ExportTimelineAnimation_Coroutine());
+                ToggleKkBridgeWindow();
             }
         }
 
-        // OnBridgeButtonClicked 方法修改為：
-        private void OnBridgeButtonClicked()
+        private void ToggleKkBridgeWindow()
         {
             Log.LogInfo("KKBridge Button Clicked!");
 
@@ -491,7 +500,7 @@ namespace KKBridge
                         shouldFill = distance <= cornerRadius;
                     }
 
-                    // 重點修改：直角部分設為完全透明
+                    // 直角部分設為完全透明
                     pixels[y * size + x] = shouldFill ? Color.white : Color.clear;
                 }
             }
@@ -719,7 +728,7 @@ namespace KKBridge
                     buttonComponent.interactable = true;
 
                     buttonComponent.onClick = new Button.ButtonClickedEvent();
-                    buttonComponent.onClick.AddListener(OnBridgeButtonClicked);
+                    buttonComponent.onClick.AddListener(ToggleKkBridgeWindow);
                 }
             }
             catch (Exception e)
@@ -763,27 +772,6 @@ namespace KKBridge
                 return null;
             }
         }
-
-        // // 我們使用 LateUpdate 來捕獲按鍵，確保在當前影格的邏輯循環中
-        // private void LateUpdate()
-        // {
-        //     if (Input.GetKeyDown(KeyCode.F7))
-        //     {
-        //         // 按下F7時，不要立刻執行，而是啟動我們的協程
-        //         Log.LogInfo("F7 key pressed. Waiting for end of frame to export...");
-        //         StartCoroutine(ExportAtEndOfFrame());
-        //     }
-        // }
-        // // 這是一個協程，它會在一個影格的最後時刻執行
-        // private System.Collections.IEnumerator ExportAtEndOfFrame()
-        // {
-        //     // 關鍵！等待，直到所有 Update、LateUpdate 和渲染都完成
-        //     yield return new WaitForEndOfFrame();
-        //     // 在這個時間點，所有 Transform 的數據都是最終的、穩定的
-        //     Log.LogInfo("End of frame reached. Executing data export...");
-        //     PrintSelectedBoneInfo();
-        //     ExportAllData();
-        // }
 
         /// <summary>
         /// 獲取並打印當前在工作室中選中的骨骼資訊
