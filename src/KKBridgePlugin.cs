@@ -412,15 +412,20 @@ namespace KKBridge
             Log.LogInfo("KKBridge Plugin loaded!");
         }
 
+        /// <summary>
+        /// 插件載入後立即執行。這是 Unity 的生命週期函式，在腳本啟用時會被呼叫一次。
+        /// </summary>
         private void Start()
         {
+            // 強制銷毀熱重載時可能殘留的舊視窗，執行兩次來避免自動打開新視窗
+            ToggleKkBridgeWindow();
+            ToggleKkBridgeWindow();
+
             StartCoroutine(CreateKKBridgeButton_Coroutine());
 
-            // 插件載入後立即執行
-            PrintSelectedBoneInfo();
-            ExportAllData();
-            ToggleKkBridgeWindow();
-            ToggleKkBridgeWindow();
+            // // 調試用
+            // PrintSelectedBoneInfo("");
+            // ExportAllData(true);
         }
 
         private void Update()
@@ -811,16 +816,19 @@ namespace KKBridge
         /// <summary>
         /// 獲取並打印當前在工作室中選中的骨骼資訊
         /// </summary>
-        private void PrintSelectedBoneInfo()
+        private void PrintSelectedBoneInfo(string boneName)
         {
-            // 硬編碼骨骼選擇 - 取消註解下面這行來使用指定骨骼
-            Transform hardcodedBone = GameObject.Find("cf_j_hips")?.transform;
-            if (hardcodedBone != null)
+            // 有效名 -> Print該骨骼
+            // 空字串 -> Print當前選中骨骼
+            if (boneName != "")
             {
-                PrintBoneInfo(hardcodedBone);
-                return;
+                Transform hardcodedBone = GameObject.Find(boneName)?.transform;
+                if (hardcodedBone != null)
+                {
+                    PrintBoneInfo(hardcodedBone);
+                    return;
+                }
             }
-            //////////////////////////////////////////////
 
             // 透過 Singleton 獲取 GuideObject 管理器實例
             var guideObjectManager = Singleton<GuideObjectManager>.Instance;
@@ -980,7 +988,7 @@ namespace KKBridge
         /// <summary>
         /// 執行所有導出操作
         /// </summary>
-        private void ExportAllData()
+        private void ExportAllData(bool cleanOutDir)
         {
             var studioInstance = Singleton<Studio.Studio>.Instance;
             if (studioInstance == null || studioInstance.dicObjectCtrl == null)
@@ -1002,22 +1010,25 @@ namespace KKBridge
             string outputDirectory = _outputDirectory.Value;
             Directory.CreateDirectory(outputDirectory);
             // 清空資料夾內所有內容
-            try
+            if (cleanOutDir)
             {
-                DirectoryInfo di = new DirectoryInfo(outputDirectory);
-                foreach (FileInfo file in di.GetFiles())
+                try
                 {
-                    file.Delete();
+                    DirectoryInfo di = new DirectoryInfo(outputDirectory);
+                    foreach (FileInfo file in di.GetFiles())
+                    {
+                        file.Delete();
+                    }
+                    foreach (DirectoryInfo dir in di.GetDirectories())
+                    {
+                        dir.Delete(true);
+                    }
                 }
-                foreach (DirectoryInfo dir in di.GetDirectories())
+                catch (Exception e)
                 {
-                    dir.Delete(true);
+                    Log.LogError($"Could not create or clear output directory '{outputDirectory}'. Error: {e.Message}");
+                    return;
                 }
-            }
-            catch (Exception e)
-            {
-                Log.LogError($"Could not create or clear output directory '{outputDirectory}'. Error: {e.Message}");
-                return;
             }
 
             int charIndex = 1;
