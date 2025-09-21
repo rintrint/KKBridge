@@ -386,7 +386,6 @@ namespace KKBridgeDebug
         private GameObject _uiPanel;
         private static Vector2 _uiPanelPosition = new Vector2(-Screen.width * 0.5f + 300, 100f);
         private Text _exportButtonText;
-        private ConfigEntry<KeyboardShortcut> _toggleWindowHotkey;
         private ConfigEntry<string> _outputDirectory;
 
         private void Awake()
@@ -395,13 +394,6 @@ namespace KKBridgeDebug
 
             // --- 設定快捷鍵 ---
             {
-                _toggleWindowHotkey = Config.Bind(
-                    "Hotkeys Settings", // 設定的小分類
-                    "Toggle Window", // 設定的名稱
-                    new KeyboardShortcut(KeyCode.F7), // 預設值
-                    "Toggles the KKBridge window." // 滑鼠懸停時顯示的說明文字
-                );
-
                 string defaultOutputPath = Path.Combine(BepInEx.Paths.PluginPath, "KKBridge");
                 defaultOutputPath = Path.Combine(defaultOutputPath, "out");
                 _outputDirectory = Config.Bind(
@@ -420,12 +412,6 @@ namespace KKBridgeDebug
         /// </summary>
         private void Start()
         {
-            // 強制銷毀熱重載時可能殘留的舊視窗，執行兩次來避免自動打開新視窗
-            ToggleKkBridgeWindow();
-            ToggleKkBridgeWindow();
-
-            StartCoroutine(CreateKKBridgeButton_Coroutine());
-
             // 調試用
             PrintSelectedBoneInfo("");
             ExportAllData(true);
@@ -433,10 +419,6 @@ namespace KKBridgeDebug
 
         private void Update()
         {
-            if (_toggleWindowHotkey.Value.IsDown())
-            {
-                ToggleKkBridgeWindow();
-            }
         }
 
         private void ToggleKkBridgeWindow()
