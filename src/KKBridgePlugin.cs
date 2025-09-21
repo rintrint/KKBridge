@@ -83,131 +83,155 @@ namespace KKBridge
     #region VMD 工具類別 (VMD Helper Classes)
 
     /// <summary>
-    /// 儲存MMD骨骼名稱和其旋轉資訊
+    /// 儲存單一骨骼完整映射資訊的數據結構
     /// </summary>
-    public class BoneMappingInfo
+    public class BoneMapEntry
     {
+        public string KkName { get; }
         public string MmdName { get; }
+        public string MmdParentName { get; } // 它在MMD裡的Parent是誰
         public Quaternion RestPoseCorrection { get; }
         public Quaternion CoordinateConversion { get; }
 
-        public BoneMappingInfo(string mmdName, Quaternion restPoseCorrection, Quaternion coordinateConversion)
+        public BoneMapEntry(string kkName, string mmdName, string mmdParentName, Quaternion restPoseCorrection, Quaternion coordinateConversion)
         {
+            KkName = kkName;
             MmdName = mmdName;
+            MmdParentName = mmdParentName; // 全ての親的Parent設為null
             RestPoseCorrection = restPoseCorrection;
             CoordinateConversion = coordinateConversion;
         }
 
-        public BoneMappingInfo(string mmdName, Quaternion restPoseCorrection)
-        {
-            MmdName = mmdName;
-            RestPoseCorrection = restPoseCorrection;
-            CoordinateConversion = Quaternion.identity;
-        }
-
-        public BoneMappingInfo(string mmdName)
-        {
-            MmdName = mmdName;
-            RestPoseCorrection = Quaternion.identity;
-            CoordinateConversion = Quaternion.identity;
-        }
+        public BoneMapEntry(string kkName, string mmdName, string mmdParentName)
+            : this(kkName, mmdName, mmdParentName, Quaternion.identity, Quaternion.identity) { }
     }
 
-    /// <summary>
-    /// 骨骼名稱映射器，將 Koikatsu 的骨骼名稱翻譯為 MMD 標準名稱，並儲存其旋轉資訊
-    /// </summary>
     public static class BoneMapper
     {
-        private static readonly Dictionary<string, BoneMappingInfo> _kkToMmdMap = new Dictionary<string, BoneMappingInfo>
+        // ================================================================
+        // 1. 單一事實來源 (Single Source of Truth)
+        // ================================================================
+        private static readonly List<BoneMapEntry> _boneMapDatabase = new List<BoneMapEntry>
         {
-            // 用戶可以調整的是 chaF_ 和 chaM_ 骨骼的旋轉
-            // 然而親子關係是 chaF_ cf_j_root cf_j_hips
-            // 中間還有cf_j_root，有的模型cf_j_root有扭轉
-            // 故映射cf_j_root，避免中間有骨骼影響結果
-            // { "chaF_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
-            // { "chaM_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
-            { "cf_j_root",          new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
-            { "cf_j_hips",          new BoneMappingInfo("センター", new Quaternion(-0.000000044f, 0.000000044f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f,-1.000000000f, 0.000000000f,-0.000000044f)) },
-            { "EyeTargetL",         new BoneMappingInfo("左目",     new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.561309993f,-0.577732265f,-0.416540653f, 0.421486050f)) },
-            { "EyeTargetR",         new BoneMappingInfo("右目",     new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion(-0.416540563f, 0.421486050f, 0.561309993f,-0.577732265f)) },
-            { "cf_j_neck",          new BoneMappingInfo("首",       new Quaternion(-0.076898634f, 0.000000000f, 0.000000000f, 0.997038901f), new Quaternion( 0.000000000f, 0.004926377f, 0.999987841f, 0.000000000f)) },
-            { "cf_j_head",          new BoneMappingInfo("頭",       new Quaternion( 0.004926383f, 0.000000000f, 0.000000000f, 0.999987900f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
-            { "cf_j_spine01",       new BoneMappingInfo("上半身",   new Quaternion( 0.021985279f, 0.000000044f, 0.000000001f, 0.999758303f), new Quaternion( 0.000000000f,-0.021985229f, 0.999758303f, 0.000000000f)) },
-            { "cf_j_spine02",       new BoneMappingInfo("上半身2",  new Quaternion( 0.050040327f, 0.000000000f, 0.000000000f, 0.998747230f), new Quaternion( 0.000000000f,-0.071985893f, 0.997405648f, 0.000000000f)) },
-            { "cf_j_waist01",       new BoneMappingInfo("下半身",   new Quaternion(-0.004499444f,-0.000000044f, 0.000000000f, 0.999989867f), new Quaternion( 0.000000000f,-0.999989927f, 0.004499471f, 0.000000000f)) },
-            { "cf_j_shoulder_L",    new BoneMappingInfo("左肩",     new Quaternion(-0.124162689f,-0.072256744f, 0.015808962f, 0.989501238f), new Quaternion( 0.437412977f,-0.555561662f,-0.429743975f,-0.561552525f)) },
-            { "cf_j_shoulder_R",    new BoneMappingInfo("右肩",     new Quaternion( 0.124163061f, 0.072277412f, 0.015806366f, 0.989499748f), new Quaternion(-0.429734826f,-0.561540902f, 0.437421978f,-0.555573404f)) },
-            { "cf_j_arm00_L",       new BoneMappingInfo("左腕",     new Quaternion(-0.199890256f,-0.002602628f,-0.000835290f, 0.979814529f), new Quaternion( 0.316989094f,-0.632075906f,-0.309348643f,-0.635847032f)) },
-            { "cf_j_arm00_R",       new BoneMappingInfo("右腕",     new Quaternion( 0.199890271f, 0.002579150f,-0.000838769f, 0.979814529f), new Quaternion(-0.309349507f,-0.635848999f, 0.316988230f,-0.632073879f)) },
-            { "cf_j_forearm01_L",   new BoneMappingInfo("左ひじ",   new Quaternion( 0.001809260f,-0.000001746f,-0.015104761f, 0.999884307f), new Quaternion( 0.308556050f,-0.636232197f,-0.320060164f,-0.630526245f)) },
-            { "cf_j_forearm01_R",   new BoneMappingInfo("右ひじ",   new Quaternion(-0.001809394f, 0.000006890f,-0.015104770f, 0.999884307f), new Quaternion(-0.320059568f,-0.630524814f, 0.308556795f,-0.636233449f)) },
-            { "cf_j_hand_L",        new BoneMappingInfo("左手首",   new Quaternion(-0.019762015f,-0.000251624f, 0.030722883f, 0.999332547f), new Quaternion( 0.315517008f,-0.632811487f,-0.287824154f,-0.645876110f)) },
-            { "cf_j_hand_R",        new BoneMappingInfo("右手首",   new Quaternion( 0.019762039f, 0.000248441f, 0.030722860f, 0.999332547f), new Quaternion(-0.287824422f,-0.645876825f, 0.315516800f,-0.632810652f)) },
-            { "cf_j_thigh00_L",     new BoneMappingInfo("左足",     new Quaternion(-0.027437627f,-0.007275635f, 0.007340898f, 0.999570072f), new Quaternion( 0.007308564f,-0.999436498f, 0.031934876f, 0.007308592f)) },
-            { "cf_j_thigh00_R",     new BoneMappingInfo("右足",     new Quaternion(-0.027437627f, 0.007275635f,-0.007340898f, 0.999570072f), new Quaternion(-0.007308564f,-0.999436498f, 0.031934876f,-0.007308592f)) },
-            { "cf_j_leg01_L",       new BoneMappingInfo("左ひざ",   new Quaternion(-0.030566327f, 0.003512908f,-0.004206586f, 0.999517739f), new Quaternion( 0.003436361f,-0.998034835f, 0.062473599f, 0.003436406f)) },
-            { "cf_j_leg01_R",       new BoneMappingInfo("右ひざ",   new Quaternion(-0.030566327f,-0.003512908f, 0.004206586f, 0.999517739f), new Quaternion(-0.003436361f,-0.998034835f, 0.062473599f,-0.003436406f)) },
-            { "cf_j_leg03_L",       new BoneMappingInfo("左足首",   new Quaternion(-0.093900926f, 0.003929516f, 0.002858158f, 0.995569706f), new Quaternion(-0.000000360f,-0.808708966f,-0.588209033f, 0.000000344f)) },
-            { "cf_j_leg03_R",       new BoneMappingInfo("右足首",   new Quaternion(-0.093900926f,-0.003929611f,-0.002858236f, 0.995569706f), new Quaternion( 0.000000360f,-0.808708966f,-0.588209033f,-0.000000344f)) },
-            { "cf_j_toes_L",        new BoneMappingInfo("左足先EX", new Quaternion(-0.155915946f, 0.000000117f, 0.000000163f, 0.987770319f), new Quaternion( 0.707106769f,-0.000000031f,-0.000000031f, 0.707106769f)) },
-            { "cf_j_toes_R",        new BoneMappingInfo("右足先EX", new Quaternion(-0.155915946f,-0.000000098f,-0.000000107f, 0.987770319f), new Quaternion( 0.707106769f,-0.000000031f,-0.000000031f, 0.707106769f)) },
-            { "cf_j_thumb01_L",     new BoneMappingInfo("左親指０", new Quaternion(-0.327803075f,-0.631274223f,-0.139706567f, 0.688854218f), new Quaternion(-0.012291201f,-0.706999958f,-0.410868526f,-0.575488508f)) },
-            { "cf_j_thumb02_L",     new BoneMappingInfo("左親指１", new Quaternion( 0.044960849f,-0.025782889f, 0.175409645f, 0.983130336f), new Quaternion( 0.148398563f,-0.693593800f,-0.335095286f,-0.620174646f)) },
-            { "cf_j_thumb03_L",     new BoneMappingInfo("左親指２", new Quaternion( 0.027835172f,-0.006796804f,-0.015709771f, 0.999465942f), new Quaternion( 0.156963393f,-0.690442502f,-0.362956792f,-0.605734289f)) },
-            { "cf_j_index01_L",     new BoneMappingInfo("左人指１", new Quaternion(-0.006491279f,-0.000130614f,-0.020633643f, 0.999766052f), new Quaternion( 0.298231035f,-0.641126335f,-0.296934605f,-0.641751587f)) },
-            { "cf_j_index02_L",     new BoneMappingInfo("左人指２", new Quaternion( 0.005409196f,-0.000092753f,-0.014974540f, 0.999873281f), new Quaternion( 0.292091519f,-0.643964350f,-0.309947193f,-0.635551095f)) },
-            { "cf_j_index03_L",     new BoneMappingInfo("左人指３", new Quaternion( 0.002893500f,-0.000918513f, 0.031723246f, 0.999492109f), new Quaternion( 0.314495474f,-0.634058118f,-0.291223079f,-0.643624187f)) },
-            { "cf_j_middle01_L",    new BoneMappingInfo("左中指１", new Quaternion(-0.018059295f,-0.000522695f,-0.010839730f, 0.999778032f), new Quaternion( 0.297073841f,-0.641626596f,-0.283168316f,-0.647980034f)) },
-            { "cf_j_middle02_L",    new BoneMappingInfo("左中指２", new Quaternion( 0.005511056f,-0.000026596f,-0.015363707f, 0.999866843f), new Quaternion( 0.290755153f,-0.644561946f,-0.296614081f,-0.641889036f)) },
-            { "cf_j_middle03_L",    new BoneMappingInfo("左中指３", new Quaternion( 0.036712706f, 0.001243827f,-0.037268702f, 0.998629928f), new Quaternion( 0.289531291f,-0.642827034f,-0.344155341f,-0.620082438f)) },
-            { "cf_j_ring01_L",      new BoneMappingInfo("左薬指１", new Quaternion(-0.014452359f,-0.000076194f,-0.037964627f, 0.999174595f), new Quaternion( 0.281919628f,-0.648476541f,-0.302937299f,-0.638927639f)) },
-            { "cf_j_ring02_L",      new BoneMappingInfo("左薬指２", new Quaternion( 0.007118759f,-0.000203615f, 0.004275586f, 0.999965489f), new Quaternion( 0.289292574f,-0.645222366f,-0.304754019f,-0.638061821f)) },
-            { "cf_j_ring03_L",      new BoneMappingInfo("左薬指３", new Quaternion( 0.017955238f, 0.000932477f,-0.039400462f, 0.999061763f), new Quaternion( 0.274771392f,-0.649948359f,-0.341462880f,-0.620863020f)) },
-            { "cf_j_little01_L",    new BoneMappingInfo("左小指１", new Quaternion(-0.001362753f,-0.000835652f,-0.045042392f, 0.998983800f), new Quaternion( 0.286053449f,-0.647312045f,-0.315497398f,-0.632156730f)) },
-            { "cf_j_little02_L",    new BoneMappingInfo("左小指２", new Quaternion( 0.042786274f, 0.001087955f, 0.001210743f, 0.999082923f), new Quaternion( 0.313279182f,-0.632185340f,-0.342449993f,-0.620423973f)) },
-            { "cf_j_little03_L",    new BoneMappingInfo("左小指３", new Quaternion(-0.073293120f, 0.003686803f,-0.030188911f, 0.996846676f), new Quaternion( 0.246470928f,-0.662461221f,-0.314920157f,-0.633421242f)) },
-            { "cf_j_thumb01_R",     new BoneMappingInfo("右親指０", new Quaternion(-0.126267761f,-0.690293312f,-0.318826735f, 0.637103736f), new Quaternion(-0.399135053f,-0.582401693f,-0.001784034f,-0.708163977f)) },
-            { "cf_j_thumb02_R",     new BoneMappingInfo("右親指１", new Quaternion(-0.055157650f, 0.028019739f, 0.124256089f, 0.990319610f), new Quaternion(-0.362015009f,-0.606614590f, 0.129534423f,-0.695833802f)) },
-            { "cf_j_thumb03_R",     new BoneMappingInfo("右親指２", new Quaternion(-0.019364225f, 0.007150123f, 0.018893316f, 0.999608397f), new Quaternion(-0.362960368f,-0.605733037f, 0.156965420f,-0.690441191f)) },
-            { "cf_j_index01_R",     new BoneMappingInfo("右人指１", new Quaternion(-0.020633664f,-0.999766052f,-0.006490113f, 0.000153542f), new Quaternion(-0.296928465f,-0.641737401f, 0.298238158f,-0.641140103f)) },
-            { "cf_j_index02_R",     new BoneMappingInfo("右人指２", new Quaternion(-0.005408927f, 0.000062573f,-0.014974901f, 0.999873281f), new Quaternion(-0.309949964f,-0.635556221f, 0.292089105f,-0.643959045f)) },
-            { "cf_j_index03_R",     new BoneMappingInfo("右人指３", new Quaternion(-0.002891559f, 0.000931297f, 0.031723637f, 0.999492109f), new Quaternion(-0.291220456f,-0.643621922f, 0.314495802f,-0.634061456f)) },
-            { "cf_j_middle01_R",    new BoneMappingInfo("右中指１", new Quaternion(-0.010839756f,-0.999778092f,-0.018058669f, 0.000523570f), new Quaternion(-0.283168763f,-0.647979975f, 0.297074258f,-0.641626239f)) },
-            { "cf_j_middle02_R",    new BoneMappingInfo("右中指２", new Quaternion(-0.005510436f, 0.000029086f,-0.015363645f, 0.999866784f), new Quaternion(-0.296613365f,-0.641887426f, 0.290755928f,-0.644563437f)) },
-            { "cf_j_middle03_R",    new BoneMappingInfo("右中指３", new Quaternion(-0.036725931f,-0.001243911f,-0.037269317f, 0.998629391f), new Quaternion(-0.344163388f,-0.620076597f, 0.289539963f,-0.642824411f)) },
-            { "cf_j_ring01_R",      new BoneMappingInfo("右薬指１", new Quaternion(-0.037964605f,-0.999174595f,-0.014453045f, 0.000076566f), new Quaternion(-0.302937061f,-0.638928175f, 0.281919181f,-0.648476303f)) },
-            { "cf_j_ring02_R",      new BoneMappingInfo("右薬指２", new Quaternion(-0.007120486f, 0.000202013f, 0.004275593f, 0.999965489f), new Quaternion(-0.304755330f,-0.638062954f, 0.289292693f,-0.645220578f)) },
-            { "cf_j_ring03_R",      new BoneMappingInfo("右薬指３", new Quaternion(-0.017960541f,-0.000929163f,-0.039401311f, 0.999061644f), new Quaternion(-0.341467202f,-0.620860159f, 0.274775475f,-0.649947166f)) },
-            { "cf_j_little01_R",    new BoneMappingInfo("右小指１", new Quaternion(-0.045042362f,-0.998983800f,-0.001362931f, 0.000835410f), new Quaternion(-0.315497667f,-0.632157445f, 0.286053091f,-0.647311211f)) },
-            { "cf_j_little02_R",    new BoneMappingInfo("右小指２", new Quaternion(-0.042786356f,-0.001088962f, 0.001210560f, 0.999082923f), new Quaternion(-0.342450678f,-0.620425403f, 0.313278526f,-0.632183909f)) },
-            { "cf_j_little03_R",    new BoneMappingInfo("右小指３", new Quaternion( 0.073282309f,-0.003687347f,-0.030189514f, 0.996847391f), new Quaternion(-0.314928681f,-0.633419812f, 0.246476576f,-0.662456393f)) },
+            new BoneMapEntry( "cha",                "全ての親", null,       new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)),
+            new BoneMapEntry( "cf_j_hips",          "センター", "全ての親", new Quaternion(-0.000000044f, 0.000000044f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f,-1.000000000f, 0.000000000f,-0.000000044f)),
+            new BoneMapEntry( "EyeTargetL",         "左目",     "頭",       new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.561309993f,-0.577732265f,-0.416540653f, 0.421486050f)),
+            new BoneMapEntry( "EyeTargetR",         "右目",     "頭",       new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion(-0.416540563f, 0.421486050f, 0.561309993f,-0.577732265f)),
+            new BoneMapEntry( "cf_j_neck",          "首",       "上半身2",  new Quaternion(-0.076898634f, 0.000000000f, 0.000000000f, 0.997038901f), new Quaternion( 0.000000000f, 0.004926377f, 0.999987841f, 0.000000000f)),
+            new BoneMapEntry( "cf_j_head",          "頭",       "首",       new Quaternion( 0.004926383f, 0.000000000f, 0.000000000f, 0.999987900f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)),
+            new BoneMapEntry( "cf_j_spine01",       "上半身",   "センター", new Quaternion( 0.021985279f, 0.000000044f, 0.000000001f, 0.999758303f), new Quaternion( 0.000000000f,-0.021985229f, 0.999758303f, 0.000000000f)),
+            new BoneMapEntry( "cf_j_spine02",       "上半身2",  "上半身",   new Quaternion( 0.050040327f, 0.000000000f, 0.000000000f, 0.998747230f), new Quaternion( 0.000000000f,-0.071985893f, 0.997405648f, 0.000000000f)),
+            new BoneMapEntry( "cf_j_waist01",       "下半身",   "センター", new Quaternion(-0.004499444f,-0.000000044f, 0.000000000f, 0.999989867f), new Quaternion( 0.000000000f,-0.999989927f, 0.004499471f, 0.000000000f)),
+            new BoneMapEntry( "cf_j_shoulder_L",    "左肩",     "上半身2",  new Quaternion(-0.124162689f,-0.072256744f, 0.015808962f, 0.989501238f), new Quaternion( 0.437412977f,-0.555561662f,-0.429743975f,-0.561552525f)),
+            new BoneMapEntry( "cf_j_shoulder_R",    "右肩",     "上半身2",  new Quaternion( 0.124163061f, 0.072277412f, 0.015806366f, 0.989499748f), new Quaternion(-0.429734826f,-0.561540902f, 0.437421978f,-0.555573404f)),
+            new BoneMapEntry( "cf_j_arm00_L",       "左腕",     "左肩",     new Quaternion(-0.199890256f,-0.002602628f,-0.000835290f, 0.979814529f), new Quaternion( 0.316989094f,-0.632075906f,-0.309348643f,-0.635847032f)),
+            new BoneMapEntry( "cf_j_arm00_R",       "右腕",     "右肩",     new Quaternion( 0.199890271f, 0.002579150f,-0.000838769f, 0.979814529f), new Quaternion(-0.309349507f,-0.635848999f, 0.316988230f,-0.632073879f)),
+            new BoneMapEntry( "cf_j_forearm01_L",   "左ひじ",   "左腕",     new Quaternion( 0.001809260f,-0.000001746f,-0.015104761f, 0.999884307f), new Quaternion( 0.308556050f,-0.636232197f,-0.320060164f,-0.630526245f)),
+            new BoneMapEntry( "cf_j_forearm01_R",   "右ひじ",   "右腕",     new Quaternion(-0.001809394f, 0.000006890f,-0.015104770f, 0.999884307f), new Quaternion(-0.320059568f,-0.630524814f, 0.308556795f,-0.636233449f)),
+            new BoneMapEntry( "cf_j_hand_L",        "左手首",   "左ひじ",   new Quaternion(-0.019762015f,-0.000251624f, 0.030722883f, 0.999332547f), new Quaternion( 0.315517008f,-0.632811487f,-0.287824154f,-0.645876110f)),
+            new BoneMapEntry( "cf_j_hand_R",        "右手首",   "右ひじ",   new Quaternion( 0.019762039f, 0.000248441f, 0.030722860f, 0.999332547f), new Quaternion(-0.287824422f,-0.645876825f, 0.315516800f,-0.632810652f)),
+            new BoneMapEntry( "cf_j_thigh00_L",     "左足",     "下半身",   new Quaternion(-0.027437627f,-0.007275635f, 0.007340898f, 0.999570072f), new Quaternion( 0.007308564f,-0.999436498f, 0.031934876f, 0.007308592f)),
+            new BoneMapEntry( "cf_j_thigh00_R",     "右足",     "下半身",   new Quaternion(-0.027437627f, 0.007275635f,-0.007340898f, 0.999570072f), new Quaternion(-0.007308564f,-0.999436498f, 0.031934876f,-0.007308592f)),
+            new BoneMapEntry( "cf_j_leg01_L",       "左ひざ",   "左足",     new Quaternion(-0.030566327f, 0.003512908f,-0.004206586f, 0.999517739f), new Quaternion( 0.003436361f,-0.998034835f, 0.062473599f, 0.003436406f)),
+            new BoneMapEntry( "cf_j_leg01_R",       "右ひざ",   "右足",     new Quaternion(-0.030566327f,-0.003512908f, 0.004206586f, 0.999517739f), new Quaternion(-0.003436361f,-0.998034835f, 0.062473599f,-0.003436406f)),
+            new BoneMapEntry( "cf_j_leg03_L",       "左足首",   "左ひざ",   new Quaternion(-0.093900926f, 0.003929516f, 0.002858158f, 0.995569706f), new Quaternion(-0.000000360f,-0.808708966f,-0.588209033f, 0.000000344f)),
+            new BoneMapEntry( "cf_j_leg03_R",       "右足首",   "右ひざ",   new Quaternion(-0.093900926f,-0.003929611f,-0.002858236f, 0.995569706f), new Quaternion( 0.000000360f,-0.808708966f,-0.588209033f,-0.000000344f)),
+            new BoneMapEntry( "cf_j_toes_L",        "左足先EX", "左足首",   new Quaternion(-0.155915946f, 0.000000117f, 0.000000163f, 0.987770319f), new Quaternion( 0.707106769f,-0.000000031f,-0.000000031f, 0.707106769f)),
+            new BoneMapEntry( "cf_j_toes_R",        "右足先EX", "右足首",   new Quaternion(-0.155915946f,-0.000000098f,-0.000000107f, 0.987770319f), new Quaternion( 0.707106769f,-0.000000031f,-0.000000031f, 0.707106769f)),
+            new BoneMapEntry( "cf_j_thumb01_L",     "左親指０", "左手首",   new Quaternion(-0.327803075f,-0.631274223f,-0.139706567f, 0.688854218f), new Quaternion(-0.012291201f,-0.706999958f,-0.410868526f,-0.575488508f)),
+            new BoneMapEntry( "cf_j_thumb02_L",     "左親指１", "左親指０", new Quaternion( 0.044960849f,-0.025782889f, 0.175409645f, 0.983130336f), new Quaternion( 0.148398563f,-0.693593800f,-0.335095286f,-0.620174646f)),
+            new BoneMapEntry( "cf_j_thumb03_L",     "左親指２", "左親指１", new Quaternion( 0.027835172f,-0.006796804f,-0.015709771f, 0.999465942f), new Quaternion( 0.156963393f,-0.690442502f,-0.362956792f,-0.605734289f)),
+            new BoneMapEntry( "cf_j_index01_L",     "左人指１", "左手首",   new Quaternion(-0.006491279f,-0.000130614f,-0.020633643f, 0.999766052f), new Quaternion( 0.298231035f,-0.641126335f,-0.296934605f,-0.641751587f)),
+            new BoneMapEntry( "cf_j_index02_L",     "左人指２", "左人指１", new Quaternion( 0.005409196f,-0.000092753f,-0.014974540f, 0.999873281f), new Quaternion( 0.292091519f,-0.643964350f,-0.309947193f,-0.635551095f)),
+            new BoneMapEntry( "cf_j_index03_L",     "左人指３", "左人指２", new Quaternion( 0.002893500f,-0.000918513f, 0.031723246f, 0.999492109f), new Quaternion( 0.314495474f,-0.634058118f,-0.291223079f,-0.643624187f)),
+            new BoneMapEntry( "cf_j_middle01_L",    "左中指１", "左手首",   new Quaternion(-0.018059295f,-0.000522695f,-0.010839730f, 0.999778032f), new Quaternion( 0.297073841f,-0.641626596f,-0.283168316f,-0.647980034f)),
+            new BoneMapEntry( "cf_j_middle02_L",    "左中指２", "左中指１", new Quaternion( 0.005511056f,-0.000026596f,-0.015363707f, 0.999866843f), new Quaternion( 0.290755153f,-0.644561946f,-0.296614081f,-0.641889036f)),
+            new BoneMapEntry( "cf_j_middle03_L",    "左中指３", "左中指２", new Quaternion( 0.036712706f, 0.001243827f,-0.037268702f, 0.998629928f), new Quaternion( 0.289531291f,-0.642827034f,-0.344155341f,-0.620082438f)),
+            new BoneMapEntry( "cf_j_ring01_L",      "左薬指１", "左手首",   new Quaternion(-0.014452359f,-0.000076194f,-0.037964627f, 0.999174595f), new Quaternion( 0.281919628f,-0.648476541f,-0.302937299f,-0.638927639f)),
+            new BoneMapEntry( "cf_j_ring02_L",      "左薬指２", "左薬指１", new Quaternion( 0.007118759f,-0.000203615f, 0.004275586f, 0.999965489f), new Quaternion( 0.289292574f,-0.645222366f,-0.304754019f,-0.638061821f)),
+            new BoneMapEntry( "cf_j_ring03_L",      "左薬指３", "左薬指２", new Quaternion( 0.017955238f, 0.000932477f,-0.039400462f, 0.999061763f), new Quaternion( 0.274771392f,-0.649948359f,-0.341462880f,-0.620863020f)),
+            new BoneMapEntry( "cf_j_little01_L",    "左小指１", "左手首",   new Quaternion(-0.001362753f,-0.000835652f,-0.045042392f, 0.998983800f), new Quaternion( 0.286053449f,-0.647312045f,-0.315497398f,-0.632156730f)),
+            new BoneMapEntry( "cf_j_little02_L",    "左小指２", "左小指１", new Quaternion( 0.042786274f, 0.001087955f, 0.001210743f, 0.999082923f), new Quaternion( 0.313279182f,-0.632185340f,-0.342449993f,-0.620423973f)),
+            new BoneMapEntry( "cf_j_little03_L",    "左小指３", "左小指２", new Quaternion(-0.073293120f, 0.003686803f,-0.030188911f, 0.996846676f), new Quaternion( 0.246470928f,-0.662461221f,-0.314920157f,-0.633421242f)),
+            new BoneMapEntry( "cf_j_thumb01_R",     "右親指０", "右手首",   new Quaternion(-0.126267761f,-0.690293312f,-0.318826735f, 0.637103736f), new Quaternion(-0.399135053f,-0.582401693f,-0.001784034f,-0.708163977f)),
+            new BoneMapEntry( "cf_j_thumb02_R",     "右親指１", "右親指０", new Quaternion(-0.055157650f, 0.028019739f, 0.124256089f, 0.990319610f), new Quaternion(-0.362015009f,-0.606614590f, 0.129534423f,-0.695833802f)),
+            new BoneMapEntry( "cf_j_thumb03_R",     "右親指２", "右親指１", new Quaternion(-0.019364225f, 0.007150123f, 0.018893316f, 0.999608397f), new Quaternion(-0.362960368f,-0.605733037f, 0.156965420f,-0.690441191f)),
+            new BoneMapEntry( "cf_j_index01_R",     "右人指１", "右手首",   new Quaternion(-0.020633664f,-0.999766052f,-0.006490113f, 0.000153542f), new Quaternion(-0.296928465f,-0.641737401f, 0.298238158f,-0.641140103f)),
+            new BoneMapEntry( "cf_j_index02_R",     "右人指２", "右人指１", new Quaternion(-0.005408927f, 0.000062573f,-0.014974901f, 0.999873281f), new Quaternion(-0.309949964f,-0.635556221f, 0.292089105f,-0.643959045f)),
+            new BoneMapEntry( "cf_j_index03_R",     "右人指３", "右人指２", new Quaternion(-0.002891559f, 0.000931297f, 0.031723637f, 0.999492109f), new Quaternion(-0.291220456f,-0.643621922f, 0.314495802f,-0.634061456f)),
+            new BoneMapEntry( "cf_j_middle01_R",    "右中指１", "右手首",   new Quaternion(-0.010839756f,-0.999778092f,-0.018058669f, 0.000523570f), new Quaternion(-0.283168763f,-0.647979975f, 0.297074258f,-0.641626239f)),
+            new BoneMapEntry( "cf_j_middle02_R",    "右中指２", "右中指１", new Quaternion(-0.005510436f, 0.000029086f,-0.015363645f, 0.999866784f), new Quaternion(-0.296613365f,-0.641887426f, 0.290755928f,-0.644563437f)),
+            new BoneMapEntry( "cf_j_middle03_R",    "右中指３", "右中指２", new Quaternion(-0.036725931f,-0.001243911f,-0.037269317f, 0.998629391f), new Quaternion(-0.344163388f,-0.620076597f, 0.289539963f,-0.642824411f)),
+            new BoneMapEntry( "cf_j_ring01_R",      "右薬指１", "右手首",   new Quaternion(-0.037964605f,-0.999174595f,-0.014453045f, 0.000076566f), new Quaternion(-0.302937061f,-0.638928175f, 0.281919181f,-0.648476303f)),
+            new BoneMapEntry( "cf_j_ring02_R",      "右薬指２", "右薬指１", new Quaternion(-0.007120486f, 0.000202013f, 0.004275593f, 0.999965489f), new Quaternion(-0.304755330f,-0.638062954f, 0.289292693f,-0.645220578f)),
+            new BoneMapEntry( "cf_j_ring03_R",      "右薬指３", "右薬指２", new Quaternion(-0.017960541f,-0.000929163f,-0.039401311f, 0.999061644f), new Quaternion(-0.341467202f,-0.620860159f, 0.274775475f,-0.649947166f)),
+            new BoneMapEntry( "cf_j_little01_R",    "右小指１", "右手首",   new Quaternion(-0.045042362f,-0.998983800f,-0.001362931f, 0.000835410f), new Quaternion(-0.315497667f,-0.632157445f, 0.286053091f,-0.647311211f)),
+            new BoneMapEntry( "cf_j_little02_R",    "右小指２", "右小指１", new Quaternion(-0.042786356f,-0.001088962f, 0.001210560f, 0.999082923f), new Quaternion(-0.342450678f,-0.620425403f, 0.313278526f,-0.632183909f)),
+            new BoneMapEntry( "cf_j_little03_R",    "右小指３", "右小指２", new Quaternion( 0.073282309f,-0.003687347f,-0.030189514f, 0.996847391f), new Quaternion(-0.314928681f,-0.633419812f, 0.246476576f,-0.662456393f)),
         };
 
-        public static bool TryGetMappingInfo(string kkBoneName, out BoneMappingInfo mappingInfo)
+        // ================================================================
+        // 2. O(1) 查找表 (自動建立)
+        // ================================================================
+        private static readonly Dictionary<string, BoneMapEntry> _mapByKkName;
+        private static readonly Dictionary<string, BoneMapEntry> _mapByMmdName;
+
+        static BoneMapper()
         {
-            if (kkBoneName == null)
+            _mapByKkName = new Dictionary<string, BoneMapEntry>(_boneMapDatabase.Count);
+            _mapByMmdName = new Dictionary<string, BoneMapEntry>(_boneMapDatabase.Count);
+
+            foreach (var entry in _boneMapDatabase)
             {
-                mappingInfo = null;
+                if (!_mapByKkName.ContainsKey(entry.KkName))
+                {
+                    _mapByKkName.Add(entry.KkName, entry);
+                }
+                if (!_mapByMmdName.ContainsKey(entry.MmdName))
+                {
+                    _mapByMmdName.Add(entry.MmdName, entry);
+                }
+            }
+        }
+
+        // ================================================================
+        // 3. 公共訪問介面 (Public API)
+        // ================================================================
+        public static IEnumerable<BoneMapEntry> GetAllEntries()
+        {
+            return _boneMapDatabase;
+        }
+
+        public static bool TryGetEntryByMmdName(string mmdName, out BoneMapEntry entry)
+        {
+            return _mapByMmdName.TryGetValue(mmdName, out entry);
+        }
+
+        /// <summary>
+        /// 智能查找映射條目。優先精確匹配，其次嘗試根骨骼前綴匹配。
+        /// </summary>
+        public static bool TryGetBestMatchEntry(Transform bone, out BoneMapEntry entry)
+        {
+            if (bone == null)
+            {
+                entry = null;
                 return false;
             }
 
-            // 先檢查字典中是否有完全匹配
-            if (_kkToMmdMap.TryGetValue(kkBoneName, out mappingInfo))
+            // 1. 優先嘗試精確名稱匹配
+            if (_mapByKkName.TryGetValue(bone.name, out entry))
             {
                 return true;
             }
 
-            // 再檢查字典中是否有前綴匹配
-            foreach (var kvp in _kkToMmdMap)
+            // 2. 如果精確匹配失敗，嘗試根骨骼前綴匹配
+            if (bone.name.StartsWith("chaM_") || bone.name.StartsWith("chaF_"))
             {
-                if (!string.IsNullOrEmpty(kvp.Key) && kkBoneName.StartsWith(kvp.Key, StringComparison.Ordinal))
-                {
-                    mappingInfo = kvp.Value;
-                    return true;
-                }
+                // 如果是 chaM/chaF 開頭，就去查找我們預定義的虛擬根骨骼條目 "cha"
+                return _mapByKkName.TryGetValue("cha", out entry);
             }
 
-            mappingInfo = null;
+            entry = null;
             return false;
         }
     }
@@ -390,7 +414,7 @@ namespace KKBridge
         {
             Log = base.Logger;
 
-            // --- 設定快捷鍵 ---
+            // --- 設定快捷鍵等東西 ---
             {
                 _toggleWindowHotkey = Config.Bind(
                     "Hotkeys Settings", // 設定的小分類
@@ -422,10 +446,6 @@ namespace KKBridge
             ToggleKkBridgeWindow();
 
             StartCoroutine(CreateKKBridgeButton_Coroutine());
-
-            // // 調試用
-            // PrintSelectedBoneInfo("");
-            // ExportAllData(true);
         }
 
         private void Update()
@@ -813,46 +833,6 @@ namespace KKBridge
             }
         }
 
-        /// <summary>
-        /// 獲取並打印當前在工作室中選中的骨骼資訊
-        /// </summary>
-        private void PrintSelectedBoneInfo(string boneName)
-        {
-            // 有效名 -> Print該骨骼
-            // 空字串 -> Print當前選中骨骼
-            if (boneName != "")
-            {
-                Transform hardcodedBone = GameObject.Find(boneName)?.transform;
-                if (hardcodedBone != null)
-                {
-                    PrintBoneInfo(hardcodedBone);
-                    return;
-                }
-            }
-
-            // 透過 Singleton 獲取 GuideObject 管理器實例
-            var guideObjectManager = Singleton<GuideObjectManager>.Instance;
-            if (guideObjectManager == null)
-            {
-                Log.LogWarning("GuideObjectManager not found. Cannot determine selected bone.");
-                return;
-            }
-
-            // 獲取當前選中的 GuideObject
-            GuideObject selectedGuideObject = guideObjectManager.selectObject;
-
-            // 檢查是否有選中的物件，並且該物件有控制一個 Transform (骨骼)
-            if (selectedGuideObject != null && selectedGuideObject.transformTarget != null)
-            {
-                Transform selectedBone = selectedGuideObject.transformTarget;
-                PrintBoneInfo(selectedBone);
-            }
-            else
-            {
-                Log.LogInfo("No bone is currently selected in the studio.");
-            }
-        }
-
         // 輔助方法: 找到 armature 根部
         private Transform FindArmatureRoot(Transform bone)
         {
@@ -893,230 +873,6 @@ namespace KKBridge
             }
 
             return current;
-        }
-
-        /// <summary>
-        /// 將單一骨骼的詳細資訊打印到控制台
-        /// </summary>
-        /// <summary>
-        /// 將單一骨骼的詳細資訊打印到控制台
-        /// </summary>
-        private void PrintBoneInfo(Transform bone)
-        {
-            if (bone == null) return;
-
-            string displayName;
-            if (BoneMapper.TryGetMappingInfo(bone.name, out var mapInfo))
-            {
-                displayName = $"{bone.name} [{mapInfo.MmdName}]";
-            }
-            else
-            {
-                displayName = bone.name;
-            }
-
-            // 獲取Transform的完整路徑
-            string fullTransformPath = bone.name;
-            Transform parent = bone.parent;
-            while (parent != null)
-            {
-                fullTransformPath = parent.name + "/" + fullTransformPath;
-                parent = parent.parent;
-            }
-
-            // 計算軸角表示法
-            Vector3 localAxis, worldAxis;
-            float localAngle, worldAngle;
-            bone.localRotation.ToAngleAxis(out localAngle, out localAxis);
-            bone.rotation.ToAngleAxis(out worldAngle, out worldAxis);
-
-            // 計算與父骨骼的相對資訊
-            string parentInfo = bone.parent != null ? bone.parent.name : "None";
-            Vector3 relativePos = bone.parent != null ? bone.position - bone.parent.position : Vector3.zero;
-            Quaternion relativeRot = bone.parent != null ? Quaternion.Inverse(bone.parent.rotation) * bone.rotation : Quaternion.identity;
-            Vector3 relativeRotEuler = relativeRot.eulerAngles;
-
-            // 收集直接子骨骼名稱
-            string childrenInfo = "None";
-            if (bone.childCount > 0)
-            {
-                var childNames = new List<string>();
-                foreach (Transform child in bone)
-                {
-                    childNames.Add(child.name);
-                }
-                childrenInfo = string.Join(", ", childNames.ToArray());
-            }
-
-            // 找到 armature 根部並計算相對資訊
-            Transform armatureRoot = FindArmatureRoot(bone);
-            string armatureRootName = armatureRoot != null ? armatureRoot.name : "None";
-            Vector3 relativeToArmaturePos = armatureRoot != null ? armatureRoot.InverseTransformPoint(bone.position) : Vector3.zero;
-            Quaternion relativeToArmatureRot = armatureRoot != null ? Quaternion.Inverse(armatureRoot.rotation) * bone.rotation : Quaternion.identity;
-            Vector3 relativeToArmatureEuler = relativeToArmatureRot.eulerAngles;
-
-            string boneInfo = $"\n" +
-                              $"==================== SELECTED BONE INFO ====================\n" +
-                              $"Name: {displayName}\n" +
-                              $"Full Path: {fullTransformPath}\n" +
-                              $"Parent: {parentInfo}\n" +
-                              $"Children (Non-recursive): {childrenInfo}\n" +
-                              $"\n--- POSITION ---\n" +
-                              $"Local Position:     P{bone.localPosition.ToString("F3")}\n" +
-                              $"World Position:     P{bone.position.ToString("F3")}\n" +
-                              $"\n--- ROTATION (EULER ANGLES) ---\n" +
-                              $"Local Rotation:     R{bone.localEulerAngles.ToString("F3")}\n" +
-                              $"World Rotation:     R{bone.eulerAngles.ToString("F3")}\n" +
-                              $"\n--- ROTATION (QUATERNION) ---\n" +
-                              $"Local Rotation:     R{bone.localRotation.ToString("F3")}\n" +
-                              $"World Rotation:     R{bone.rotation.ToString("F3")}\n" +
-                              $"\n--- RELATIVE TO PARENT ({parentInfo}) ---\n" +
-                              $"Relative to Parent Position: P{relativePos.ToString("F3")}\n" +
-                              $"Relative to Parent Rotation: R{relativeRotEuler.ToString("F3")}\n" +
-                              $"\n--- RELATIVE TO ARMATURE ROOT ({armatureRootName}) ---\n" +
-                              $"Armature Relative Position: P{relativeToArmaturePos.ToString("F3")}\n" +
-                              $"Armature Relative Rotation: R{relativeToArmatureEuler.ToString("F3")}\n" +
-                              $"\n--- ADDITIONAL INFO ---\n" +
-                              $"Transform Right:    {bone.right.ToString("F3")}\n" +
-                              $"Transform Up:       {bone.up.ToString("F3")}\n" +
-                              $"Transform Forward:  {bone.forward.ToString("F3")}\n" +
-                              $"=============================================================";
-
-            Log.LogInfo(boneInfo);
-        }
-
-        /// <summary>
-        /// 執行所有導出操作
-        /// </summary>
-        private void ExportAllData(bool cleanOutDir)
-        {
-            var studioInstance = Singleton<Studio.Studio>.Instance;
-            if (studioInstance == null || studioInstance.dicObjectCtrl == null)
-            {
-                Log.LogError("Could not get Studio instance. Are you in the main studio scene?");
-                return;
-            }
-
-            var characters = studioInstance.dicObjectCtrl.Values.OfType<OCIChar>().ToList();
-            if (!characters.Any())
-            {
-                Log.LogWarning("No characters found in the scene to export.");
-                return;
-            }
-
-            Log.LogInfo($"Found {characters.Count} character(s). Starting export process...");
-
-            // --- 準備VMD導出 ---
-            string outputDirectory = _outputDirectory.Value;
-            Directory.CreateDirectory(outputDirectory);
-            // 清空資料夾內所有內容
-            if (cleanOutDir)
-            {
-                try
-                {
-                    DirectoryInfo di = new DirectoryInfo(outputDirectory);
-                    foreach (FileInfo file in di.GetFiles())
-                    {
-                        file.Delete();
-                    }
-                    foreach (DirectoryInfo dir in di.GetDirectories())
-                    {
-                        dir.Delete(true);
-                    }
-                }
-                catch (Exception e)
-                {
-                    Log.LogError($"Could not create or clear output directory '{outputDirectory}'. Error: {e.Message}");
-                    return;
-                }
-            }
-
-            int charIndex = 1;
-            // --- 遍歷所有角色，為每個角色分別導出 VMD 和 TXT ---
-            foreach (var ociChar in characters)
-            {
-                ChaControl chaCtrl = ociChar.charInfo;
-                if (chaCtrl == null) continue;
-
-                string charName = chaCtrl.chaFile.parameter.fullname;
-                Log.LogInfo($"Processing Character {charIndex}: {charName}");
-
-                Transform boneRoot = chaCtrl.transform;
-                if (boneRoot == null)
-                {
-                    Log.LogWarning($"Could not find bone root for character {charName}. Skipping.");
-                    charIndex++;
-                    continue;
-                }
-
-                // --- 1. 導出骨骼資訊到獨立的 TXT 檔案 ---
-                var boneReportBuilder = new StringBuilder();
-                TraverseBones(boneRoot, "", boneReportBuilder);
-
-                string txtFileName = CreateSafeFileName(charIndex, "_", charName, ".txt");
-                string txtFilePath = Path.Combine(outputDirectory, txtFileName);
-
-                try
-                {
-                    File.WriteAllText(txtFilePath, boneReportBuilder.ToString(), Encoding.UTF8);
-                    Log.LogInfo($"Successfully wrote bone info to: {txtFilePath}");
-                }
-                catch (Exception e)
-                {
-                    Log.LogError($"Failed to write bone info file for {charName}: {e.Message}");
-                }
-
-                // --- 2. 導出 VMD 檔案 ---
-                var vmdFrames = new List<VmdMotionFrame>();
-                CollectBoneData(ociChar, boneRoot, vmdFrames);
-
-                // 創建IK框架，將所有IK關閉但顯示網格打開
-                var ikFrames = new List<VmdIkFrame>();
-                var ikFrame = new VmdIkFrame()
-                {
-                    FrameNumber = 0,
-                    Display = true  // 設為true表示顯示網格 (show mesh) 打開
-                };
-
-                // 添加需要關閉的IK
-                string[] ikNames = {
-                    "左腕ＩＫ",
-                    "右腕ＩＫ",
-                    "左足ＩＫ",
-                    "右足ＩＫ",
-                    "左つま先ＩＫ",
-                    "右つま先ＩＫ",
-
-                    "ﾈｸﾀｲＩＫ",
-                    "右髪ＩＫ",
-                    "左髪ＩＫ",
-                    "しっぽＩＫ",
-                    "右腰ベルトＩＫ",
-                    "左腰ベルトＩＫ",
-                };
-                foreach (string ikName in ikNames)
-                {
-                    ikFrame.IkEnables.Add(new VmdIkEnable(ikName, false)); // 設定為false來關閉IK
-                }
-                ikFrames.Add(ikFrame);
-
-                string vmdFileName = CreateSafeFileName(charIndex, "_", charName, ".vmd");
-                string vmdFilePath = Path.Combine(outputDirectory, vmdFileName);
-
-                try
-                {
-                    VmdExporter.Export(vmdFrames, ikFrames, "KoikatsuModel", vmdFilePath);
-                    Log.LogInfo($"Successfully exported VMD for character {charIndex} to: {vmdFilePath}");
-                }
-                catch (Exception e)
-                {
-                    Log.LogError($"Failed to export VMD for character {charIndex}: {e.Message}");
-                }
-
-                charIndex++;
-            }
-
-            Log.LogInfo("All export tasks finished.");
         }
 
         /// <summary>
@@ -1224,8 +980,8 @@ namespace KKBridge
                     foreach (var ociChar in characters)
                     {
                         var singleFrameBoneData = new List<VmdMotionFrame>();
-                        Transform boneRoot = ociChar.charInfo.transform;
-                        CollectBoneData(ociChar, boneRoot, singleFrameBoneData);
+
+                        CollectAllBoneDataForCharacter(ociChar, singleFrameBoneData);
 
                         foreach (var boneFrame in singleFrameBoneData)
                         {
@@ -1375,71 +1131,155 @@ namespace KKBridge
             return angle;
         }
 
+        // 私有成員變數，用於骨骼快取
+        private Dictionary<string, Transform> _boneCache;
+
         /// <summary>
-        /// 遞迴收集符合白名單條件的骨骼數據用於VMD導出
+        /// 尋找指定名稱的後代 Transform (廣度優先 BFS)，更穩健。
         /// </summary>
-        private void CollectBoneData(OCIChar ociChar, Transform bone, List<VmdMotionFrame> frameList)
+        private Transform FindDescendant(Transform parent, string name)
+        {
+            if (parent == null) return null;
+
+            var queue = new Queue<Transform>();
+            queue.Enqueue(parent);
+
+            while (queue.Count > 0)
+            {
+                Transform current = queue.Dequeue();
+
+                if (current.name == name)
+                {
+                    return current;
+                }
+
+                foreach (Transform child in current)
+                {
+                    queue.Enqueue(child);
+                }
+            }
+            return null; // 沒找到
+        }
+
+        /// <summary>
+        /// 為單一角色收集所有骨骼數據的啟動函數。
+        /// 負責動態識別根骨骼、建立快取，並啟動遞迴。
+        /// </summary>
+        private void CollectAllBoneDataForCharacter(OCIChar ociChar, List<VmdMotionFrame> frameList)
+        {
+            // 經確認 ociChar.charInfo.transform 就是我們要找的根物件 (chaM_.../chaF_...)
+            Transform instanceRootTf = ociChar.charInfo.transform;
+            if (instanceRootTf == null)
+            {
+                Log.LogError("Character root transform is null. Skipping.");
+                return;
+            }
+
+            // 建立快取
+            _boneCache = new Dictionary<string, Transform>();
+            try
+            {
+                // 遍歷所有在 BoneMapper 中定義的真實骨骼並快取
+                foreach (var entry in BoneMapper.GetAllEntries())
+                {
+                    if (entry.KkName == "cha") continue; // 忽略虛擬鍵名
+
+                    Transform boneTf = FindDescendant(instanceRootTf, entry.KkName);
+                    if (boneTf != null)
+                    {
+                        _boneCache[entry.KkName] = boneTf;
+                    }
+                }
+
+                // 關鍵一步: 將真正的根物件 Transform，用虛擬鍵名 "cha" 存入快取
+                _boneCache["cha"] = instanceRootTf;
+
+                // 從識別出的根物件開始遞迴
+                CollectBoneDataRecursive(instanceRootTf, frameList);
+            }
+            finally
+            {
+                _boneCache = null;
+            }
+        }
+
+        /// <summary>
+        /// 遞迴收集骨骼數據。
+        /// 採用統一計算邏輯，數據和規則由 BoneMapper 提供。
+        /// </summary>
+        private void CollectBoneDataRecursive(Transform bone, List<VmdMotionFrame> frameList)
         {
             if (bone == null) return;
 
-            // 如果可以在 BoneMapper 中找到對應的 MMD 名稱，則導出其數據
-            if (BoneMapper.TryGetMappingInfo(bone.name, out var mapInfo))
+            // 使用智能查找獲取當前骨骼的映射規則
+            if (BoneMapper.TryGetBestMatchEntry(bone, out BoneMapEntry currentEntry))
             {
-                var frame = new VmdMotionFrame(mapInfo.MmdName);
+                var frame = new VmdMotionFrame(currentEntry.MmdName);
+                Quaternion finalRot;
 
+                // --- 統一旋轉計算邏輯 ---
+                if (currentEntry.MmdParentName == null)
+                {
+                    // 情況1: 是根骨骼 (父物件名為 null)，直接使用世界旋轉
+                    finalRot = bone.rotation;
+                }
+                else
+                {
+                    // 情況2: 是子骨骼，查找其父物件並計算相對旋轉
+                    if (BoneMapper.TryGetEntryByMmdName(currentEntry.MmdParentName, out var parentEntry) &&
+                        _boneCache.TryGetValue(parentEntry.KkName, out var parentTf))
+                    {
+                        // 應用通用公式
+                        finalRot = Quaternion.Inverse(parentTf.rotation) * bone.rotation;
+                    }
+                    else
+                    {
+                        // Fallback: 如果因故找不到父物件，記錄日誌並退回使用局部旋轉
+                        finalRot = bone.localRotation;
+                        Log.LogWarning($"Could not find parent transform for '{currentEntry.MmdName}'. Parent MMD name: '{currentEntry.MmdParentName}'. Falling back to localRotation.");
+                    }
+                }
+
+                // --- 位置計算邏輯 ---
+                Vector3 finalPos = Vector3.zero;
                 const float mmdScaleFactor = 12.5f;
-                Vector3 relativePos;
-                Quaternion relativeRot;
-
-                if (mapInfo.MmdName == "全ての親")
+                if (currentEntry.MmdName == "全ての親")
                 {
                     // 根骨骼用 World Position
-                    relativePos = bone.position;
-                    relativePos = new Vector3(-relativePos.x, relativePos.y, -relativePos.z);
-                    relativePos *= mmdScaleFactor;
+                    finalPos = bone.position;
+                    finalPos = new Vector3(-finalPos.x, finalPos.y, -finalPos.z) * mmdScaleFactor;
                 }
-                else if (mapInfo.MmdName == "センター")
+                else if (currentEntry.MmdName == "センター")
                 {
-                    relativePos = bone.localPosition;
-                    relativeRot = bone.localRotation;
-                    // 正規化: 減去 Koikatsu 靜止姿態的基礎偏移，讓 relativePos 只剩下「純粹的動畫位移」
-                    relativePos -= new Vector3(0, 1.1435f, 0);
-
-                    // 進行旋轉中心 (Pivot) 的補正計算，補正因旋轉中心不同而產生的動態位移
+                    // "センター"的位置是相對於"全ての親"的
+                    if (_boneCache.TryGetValue("cha", out var rootTf))
                     {
+                        Vector3 relativePos = Quaternion.Inverse(rootTf.rotation) * (bone.position - rootTf.position);
+
+                        // 正規化: Koikatsu的"センター"比"全ての親"高1.1435 * scale
+                        // 減去 Koikatsu 靜止姿態的基礎偏移，讓 relativePos 只剩下「純粹的動畫位移」
+                        float tposeHipsHeight = 1.1435f * bone.lossyScale.y;
+                        relativePos -= new Vector3(0, tposeHipsHeight, 0);
+
+                        // 應用 Pivot 補正
+                        // 進行旋轉中心 (Pivot) 的補正計算，補正因旋轉中心不同而產生的動態位移
                         // PMX的センター高度:0.64
-                        //  KK的センター高度:1.1435
-                        // V = P_pmx(0.64) - P_kk(1.1435)
-                        Vector3 v = new Vector3(0, -0.5035f, 0);
-                        relativePos += (relativeRot * v) - v;
+                        //  KK的センター高度:1.1435 * scale
+                        // V = P_pmx(0.64) - P_kk(1.1435 * scale)
+                        Vector3 v = new Vector3(0, 0.64f - tposeHipsHeight, 0);
+                        relativePos += (finalRot * v) - v;
+
+                        finalPos = new Vector3(-relativePos.x, relativePos.y, -relativePos.z) * mmdScaleFactor;
                     }
+                }
+                // else 其他骨骼只能旋轉不能移動，維持 Vector3.zero
 
-                    relativePos = new Vector3(-relativePos.x, relativePos.y, -relativePos.z);
-                    relativePos *= mmdScaleFactor;
-                }
-                else
-                {
-                    // 其他骨骼只能旋轉不能移動
-                    relativePos = new Vector3(0, 0, 0);
-                }
-
-                if (mapInfo.MmdName == "全ての親")
-                {
-                    // 根骨骼用 World Rotation
-                    relativeRot = bone.rotation;
-                }
-                else
-                {
-                    // 其他骨骼用 Local Rotation
-                    relativeRot = bone.localRotation;
-                }
-
-                // 坐標變換
-                switch (mapInfo.MmdName)
+                // --- 統一應用修正數據 ---
+                switch (currentEntry.MmdName)
                 {
                     case "全ての親":
                         {
-                            relativeRot = new Quaternion(relativeRot.x, -relativeRot.y, -relativeRot.z, relativeRot.w);
+                            finalRot = new Quaternion(finalRot.x, -finalRot.y, -finalRot.z, finalRot.w);
                             break;
                         }
                     case "センター":
@@ -1460,7 +1300,7 @@ namespace KKBridge
                                 const float eyeIntensityFactorY = 0.45f;        // 水平方向(左右看)的縮放
 
                                 // 獲取 EyeTarget 的原始局部旋轉
-                                Quaternion rawRotation = relativeRot;
+                                Quaternion rawRotation = finalRot;
                                 Vector3 rawEuler = rawRotation.eulerAngles;
 
                                 // 1. 將原始歐拉角標準化到 -180 ~ 180 度範圍
@@ -1483,10 +1323,10 @@ namespace KKBridge
                                 float scaledY = normalizedY * eyeIntensityFactorY;
 
                                 // 4. 將縮放後的歐拉角重新組合成四元數
-                                relativeRot = Quaternion.Euler(scaledX, scaledY, normalizedZ);
+                                finalRot = Quaternion.Euler(scaledX, scaledY, normalizedZ);
                             }
-                            relativeRot = relativeRot.conjugated();
-                            relativeRot = ConvertRotation(Quaternion.Euler(90, 0, -90), relativeRot);
+                            finalRot = finalRot.conjugated();
+                            finalRot = ConvertRotation(Quaternion.Euler(90, 0, -90), finalRot);
                             break;
                         }
                     case "首":
@@ -1494,7 +1334,7 @@ namespace KKBridge
                     case "上半身":
                     case "上半身2":
                         {
-                            relativeRot = new Quaternion(relativeRot.x, -relativeRot.y, -relativeRot.z, relativeRot.w);
+                            finalRot = new Quaternion(finalRot.x, -finalRot.y, -finalRot.z, finalRot.w);
                             break;
                         }
                     case "下半身":
@@ -1505,8 +1345,8 @@ namespace KKBridge
                     case "左親指１":
                     case "左親指２":
                         {
-                            relativeRot = new Quaternion(-relativeRot.x, relativeRot.y, -relativeRot.z, relativeRot.w);
-                            relativeRot = ConvertRotation(Quaternion.Euler(0, 0, -90), relativeRot);
+                            finalRot = new Quaternion(-finalRot.x, finalRot.y, -finalRot.z, finalRot.w);
+                            finalRot = ConvertRotation(Quaternion.Euler(0, 0, -90), finalRot);
                             break;
                         }
                     case "左人指１":
@@ -1522,7 +1362,7 @@ namespace KKBridge
                     case "左小指２":
                     case "左小指３":
                         {
-                            relativeRot = ConvertRotation(Quaternion.Euler(0, 90, 90), relativeRot);
+                            finalRot = ConvertRotation(Quaternion.Euler(0, 90, 90), finalRot);
                             break;
                         }
                     case "左肩":
@@ -1530,15 +1370,15 @@ namespace KKBridge
                     case "左ひじ":
                     case "左手首":
                         {
-                            relativeRot = ConvertRotation(Quaternion.Euler(0, 90, 90), relativeRot);
+                            finalRot = ConvertRotation(Quaternion.Euler(0, 90, 90), finalRot);
                             break;
                         }
                     case "右親指０":
                     case "右親指１":
                     case "右親指２":
                         {
-                            relativeRot = new Quaternion(-relativeRot.x, relativeRot.y, -relativeRot.z, relativeRot.w);
-                            relativeRot = ConvertRotation(Quaternion.Euler(0, 0, 90), relativeRot);
+                            finalRot = new Quaternion(-finalRot.x, finalRot.y, -finalRot.z, finalRot.w);
+                            finalRot = ConvertRotation(Quaternion.Euler(0, 0, 90), finalRot);
                             break;
                         }
                     case "右人指１":
@@ -1554,8 +1394,8 @@ namespace KKBridge
                     case "右小指２":
                     case "右小指３":
                         {
-                            relativeRot = new Quaternion(-relativeRot.x, -relativeRot.y, relativeRot.z, relativeRot.w);
-                            relativeRot = ConvertRotation(Quaternion.Euler(0, -90, 90), relativeRot);
+                            finalRot = new Quaternion(-finalRot.x, -finalRot.y, finalRot.z, finalRot.w);
+                            finalRot = ConvertRotation(Quaternion.Euler(0, -90, 90), finalRot);
                             break;
                         }
                     case "右肩":
@@ -1563,8 +1403,8 @@ namespace KKBridge
                     case "右ひじ":
                     case "右手首":
                         {
-                            relativeRot = new Quaternion(-relativeRot.x, relativeRot.y, -relativeRot.z, relativeRot.w);
-                            relativeRot = ConvertRotation(Quaternion.Euler(0, -90, 90), relativeRot);
+                            finalRot = new Quaternion(-finalRot.x, finalRot.y, -finalRot.z, finalRot.w);
+                            finalRot = ConvertRotation(Quaternion.Euler(0, -90, 90), finalRot);
                             break;
                         }
                     case "左足":
@@ -1577,14 +1417,14 @@ namespace KKBridge
                     case "左足首":
                     case "右足首":
                         {
-                            relativeRot = ConvertRotation(Quaternion.Euler(90, 0, 0), relativeRot);
+                            finalRot = ConvertRotation(Quaternion.Euler(90, 0, 0), finalRot);
                             break;
                         }
                     case "左足先EX":
                     case "右足先EX":
                         {
-                            relativeRot = new Quaternion(-relativeRot.x, -relativeRot.y, relativeRot.z, relativeRot.w);
-                            relativeRot = ConvertRotation(Quaternion.Euler(90, 0, 0), relativeRot);
+                            finalRot = new Quaternion(-finalRot.x, -finalRot.y, finalRot.z, finalRot.w);
+                            finalRot = ConvertRotation(Quaternion.Euler(90, 0, 0), finalRot);
                             break;
                         }
                     default:
@@ -1592,53 +1432,19 @@ namespace KKBridge
                             break;
                         }
                 }
-                // 應用 RestPoseCorrection 和 CoordinateConversion
-                relativeRot = mapInfo.RestPoseCorrection * relativeRot;
-                relativeRot = ConvertRotation(mapInfo.CoordinateConversion, relativeRot);
 
-                frame.Position = relativePos;
-                // 假設Unity輸出單位四元數，函數開頭不做正規化
-                // 只在結尾正規化，解決精度誤差導致magnitude在1.0附近上下浮動
-                frame.Rotation = relativeRot.normalized();
-                // 檢查正規化結果
-                // Log.LogInfo(frame.Rotation.magnitude().ToString("F9"));
+                finalRot = currentEntry.RestPoseCorrection * finalRot;
+                finalRot = ConvertRotation(currentEntry.CoordinateConversion, finalRot);
 
+                frame.Rotation = finalRot.normalized();
+                frame.Position = finalPos;
                 frameList.Add(frame);
             }
 
-            // 無論當前骨骼是否被導出，都繼續遞迴處理其所有子骨骼
+            // 遞迴遍歷所有子物件
             foreach (Transform child in bone)
             {
-                CollectBoneData(ociChar, child, frameList);
-            }
-        }
-
-        /// <summary>
-        /// 遞迴函式，遍歷骨骼並建立報告，只包含白名單內的骨骼
-        /// </summary>
-        private void TraverseBones(Transform bone, string indent, StringBuilder builder)
-        {
-            if (bone == null) return;
-
-            {
-                string displayName;
-                if (BoneMapper.TryGetMappingInfo(bone.name, out var mapInfo))
-                {
-                    displayName = $"{bone.name} [{mapInfo.MmdName}]";
-                }
-                else
-                {
-                    displayName = bone.name;
-                }
-
-                string boneInfo = $"{indent}{displayName}                    P{bone.localPosition.ToString("F3")} R{bone.localEulerAngles.ToString("F3")} S{bone.localScale.ToString("F3")}";
-                builder.AppendLine(boneInfo);
-            }
-
-            // 無論當前骨骼是否被包含在報告中，都繼續遞迴處理其所有子骨骼
-            foreach (Transform child in bone)
-            {
-                TraverseBones(child, indent + "  ", builder);
+                CollectBoneDataRecursive(child, frameList);
             }
         }
 
