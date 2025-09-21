@@ -124,6 +124,9 @@ namespace KKBridge
             // 然而親子關係是 chaF_ cf_j_root cf_j_hips
             // 中間還有cf_j_root，有的模型cf_j_root有扭轉
             // 故映射cf_j_root，避免中間有骨骼影響結果
+            // 更新:
+            // cf_j_root cf_n_height cf_j_hips
+            // 中間還多了一個cf_n_height 需要手動計算 センター 相對於 全ての親 的局部變換
             // { "chaF_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
             // { "chaM_",              new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
             { "cf_j_root",          new BoneMappingInfo("全ての親", new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)) },
@@ -423,9 +426,9 @@ namespace KKBridge
 
             StartCoroutine(CreateKKBridgeButton_Coroutine());
 
-            // // 調試用
-            // PrintSelectedBoneInfo("");
-            // ExportAllData(true);
+            // 調試用
+            PrintSelectedBoneInfo("");
+            ExportAllData(true);
         }
 
         private void Update()
@@ -1631,7 +1634,7 @@ namespace KKBridge
                     displayName = bone.name;
                 }
 
-                string boneInfo = $"{indent}{displayName}                    P{bone.localPosition.ToString("F3")} R{bone.localEulerAngles.ToString("F3")} S{bone.localScale.ToString("F3")}";
+                string boneInfo = $"{indent}{displayName}                    WP{bone.position.ToString("F3")} WR{bone.eulerAngles.ToString("F3")} WS{bone.lossyScale.ToString("F3")}                    LP{bone.localPosition.ToString("F3")} LR{bone.localEulerAngles.ToString("F3")} LS{bone.localScale.ToString("F3")}";
                 builder.AppendLine(boneInfo);
             }
 
