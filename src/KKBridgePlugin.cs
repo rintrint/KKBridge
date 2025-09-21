@@ -379,7 +379,7 @@ namespace KKBridgeDebug
     }
 
     [BepInPlugin("com.rintrint.kkbridgedebug", "KKBridgeDebug", "0.0.1")]
-    public class KKBridgePlugin : BaseUnityPlugin
+    public class KKBridgeDebugPlugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
         private bool _isExporting = false;
