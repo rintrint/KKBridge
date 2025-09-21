@@ -1617,7 +1617,7 @@ namespace KKBridge
         }
 
         /// <summary>
-        /// 遞迴函式，遍歷骨骼並建立報告，只包含白名單內的骨骼
+        /// 遞迴函式，遍歷骨骼並建立報告
         /// </summary>
         private void TraverseBones(Transform bone, string indent, StringBuilder builder)
         {
