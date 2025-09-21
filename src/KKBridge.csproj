@@ -7,8 +7,8 @@
     <ProjectGuid>{A3F84F08-56EA-4394-83D5-00AEE2F44601}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>KKBridge</RootNamespace>
-    <AssemblyName>KKBridge</AssemblyName>
+    <RootNamespace>KKBridgeDebug</RootNamespace>
+    <AssemblyName>KKBridgeDebug</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <Deterministic>true</Deterministic>

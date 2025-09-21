@@ -78,7 +78,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
-namespace KKBridge
+namespace KKBridgeDebug
 {
     #region VMD 工具類別 (VMD Helper Classes)
 
@@ -378,7 +378,7 @@ namespace KKBridge
         }
     }
 
-    [BepInPlugin("com.rintrint.kkbridge", "KKBridge", "0.0.1")]
+    [BepInPlugin("com.rintrint.kkbridgedebug", "KKBridgeDebug", "0.0.1")]
     public class KKBridgePlugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
@@ -730,10 +730,10 @@ namespace KKBridge
                     yield break;
                 }
 
-                Texture2D iconTexture = LoadImageFromAssembly("KKBridge.Resources.Icon.png");
+                Texture2D iconTexture = LoadImageFromAssembly("KKBridgeDebug.Resources.Icon.png");
                 if (iconTexture == null)
                 {
-                    Log.LogError("[KKBridgeButton] ERROR: Failed to load embedded resource 'KKBridge.Resources.Icon.png' from DLL.");
+                    Log.LogError("[KKBridgeButton] ERROR: Failed to load embedded resource 'KKBridgeDebug.Resources.Icon.png' from DLL.");
                     yield break;
                 }
 
