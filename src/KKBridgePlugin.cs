@@ -883,12 +883,28 @@ namespace KKBridge
                 Time.captureFramerate = fps;
 
                 // --- 階段二：初始化資料結構並開始錄製 ---
-
-                // 為每個角色創建一個 VMD 影格列表
                 var allCharactersFrames = new Dictionary<OCIChar, List<VmdMotionFrame>>();
+                var characterBoneCaches = new Dictionary<OCIChar, Dictionary<string, Transform>>();
                 foreach (var ociChar in characters)
                 {
+                    // 為每個角色創建一個 VMD 影格列表
                     allCharactersFrames[ociChar] = new List<VmdMotionFrame>();
+
+                    // 為每個角色預先建立並儲存骨骼快取
+                    var boneCacheForChar = new Dictionary<string, Transform>();
+                    Transform instanceRootTf = ociChar.charInfo.transform;
+                    if (instanceRootTf != null)
+                    {
+                        foreach (var entry in BoneMapper.GetAllEntries())
+                        {
+                            Transform boneTf = FindDescendant(instanceRootTf, entry.KkName);
+                            if (boneTf != null)
+                            {
+                                boneCacheForChar[entry.KkName] = boneTf;
+                            }
+                        }
+                    }
+                    characterBoneCaches[ociChar] = boneCacheForChar;
                 }
 
                 // 將 Timeline 開始播放
@@ -927,8 +943,12 @@ namespace KKBridge
                     foreach (var ociChar in characters)
                     {
                         var singleFrameBoneData = new List<VmdMotionFrame>();
+                        Transform instanceRootTf = ociChar.charInfo.transform;
 
-                        CollectAllBoneDataForCharacter(ociChar, singleFrameBoneData);
+                        if (characterBoneCaches.TryGetValue(ociChar, out var currentBoneCache) && instanceRootTf != null)
+                        {
+                            CollectAllBoneDataForCharacter(instanceRootTf, currentBoneCache, singleFrameBoneData);
+                        }
 
                         foreach (var boneFrame in singleFrameBoneData)
                         {
@@ -1078,9 +1098,6 @@ namespace KKBridge
             return angle;
         }
 
-        // 私有成員變數，用於骨骼快取
-        private Dictionary<string, Transform> _boneCache;
-
         /// <summary>
         /// 尋找指定名稱的後代 Transform (廣度優先 BFS)，更穩健。
         /// </summary>
@@ -1112,51 +1129,21 @@ namespace KKBridge
         /// 為單一角色收集所有骨骼數據的啟動函數。
         /// 負責動態識別根骨骼、建立快取，並啟動遞迴。
         /// </summary>
-        private void CollectAllBoneDataForCharacter(OCIChar ociChar, List<VmdMotionFrame> frameList)
+        private void CollectAllBoneDataForCharacter(Transform instanceRootTf, Dictionary<string, Transform> boneCache, List<VmdMotionFrame> frameList)
         {
-            // 獲取角色物件的根 Transform (例如 chaM_.../chaF_...)，這是我們搜尋的起點
-            Transform instanceRootTf = ociChar.charInfo.transform;
             if (instanceRootTf == null)
             {
                 Log.LogError("Character root transform is null. Skipping.");
                 return;
             }
-
-            // 建立骨骼快取
-            _boneCache = new Dictionary<string, Transform>();
-            try
-            {
-                // 遍歷所有在 BoneMapper 中定義的骨骼，並從角色物件中找出對應的 Transform，然後存入快取
-                foreach (var entry in BoneMapper.GetAllEntries())
-                {
-                    // 使用 FindDescendant 從根部開始往下查找具有指定名稱的骨骼
-                    Transform boneTf = FindDescendant(instanceRootTf, entry.KkName);
-                    if (boneTf != null)
-                    {
-                        // 如果找到了，就以 KK 名稱作為 Key 存入快取
-                        _boneCache[entry.KkName] = boneTf;
-                    }
-                    else
-                    {
-                        Log.LogWarning($"Bone '{entry.KkName}' not found in character '{ociChar.charInfo.name}'.");
-                    }
-                }
-
-                // 從最上層的根物件開始進行遞迴，處理所有子物件
-                CollectBoneDataRecursive(instanceRootTf, frameList);
-            }
-            finally
-            {
-                // 清理快取
-                _boneCache = null;
-            }
+            CollectBoneDataRecursive(instanceRootTf, boneCache, frameList);
         }
 
         /// <summary>
         /// 遞迴收集骨骼數據。
         /// 採用統一計算邏輯，數據和規則由 BoneMapper 提供。
         /// </summary>
-        private void CollectBoneDataRecursive(Transform bone, List<VmdMotionFrame> frameList)
+        private void CollectBoneDataRecursive(Transform bone, Dictionary<string, Transform> boneCache, List<VmdMotionFrame> frameList)
         {
             if (bone == null) return;
 
@@ -1176,7 +1163,7 @@ namespace KKBridge
                 {
                     // 情況2: 是子骨骼，查找其父物件並計算相對旋轉
                     if (BoneMapper.TryGetEntryByMmdName(currentEntry.MmdParentName, out var parentEntry) &&
-                        _boneCache.TryGetValue(parentEntry.KkName, out var parentTf))
+                        boneCache.TryGetValue(parentEntry.KkName, out var parentTf))
                     {
                         // 應用通用公式
                         finalRot = Quaternion.Inverse(parentTf.rotation) * bone.rotation;
@@ -1194,7 +1181,7 @@ namespace KKBridge
                 const float mmdScaleFactor = 12.5f;
                 if (currentEntry.MmdName == "全ての親")
                 {
-                    if (_boneCache.TryGetValue("cf_j_hips", out var hipsTf))
+                    if (boneCache.TryGetValue("cf_j_hips", out var hipsTf))
                     {
                         // 根骨骼用 World Position
                         finalPos = bone.position;
@@ -1212,7 +1199,7 @@ namespace KKBridge
                 else if (currentEntry.MmdName == "センター")
                 {
                     // "センター"的位置是相對於"全ての親"的
-                    if (_boneCache.TryGetValue("cf_n_height", out var rootTf))
+                    if (boneCache.TryGetValue("cf_n_height", out var rootTf))
                     {
                         finalPos = Quaternion.Inverse(rootTf.rotation) * (bone.position - rootTf.position);
 
@@ -1407,7 +1394,7 @@ namespace KKBridge
             // 遞迴遍歷所有子物件
             foreach (Transform child in bone)
             {
-                CollectBoneDataRecursive(child, frameList);
+                CollectBoneDataRecursive(child, boneCache, frameList);
             }
         }
 
