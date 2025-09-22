@@ -1245,31 +1245,45 @@ namespace KKBridge
                 const float mmdScaleFactor = 12.5f;
                 if (currentEntry.MmdName == "全ての親")
                 {
-                    // 根骨骼用 World Position
-                    finalPos = bone.position;
-                    finalPos = new Vector3(-finalPos.x, finalPos.y, -finalPos.z) * mmdScaleFactor;
+                    if (_boneCache.TryGetValue("cf_j_hips", out var hipsTf))
+                    {
+                        // 根骨骼用 World Position
+                        finalPos = bone.position;
+
+                        // 應用 Pivot 補正
+                        // PMX的全ての親在腳後跟(嚴格T-pose姿勢)
+                        //  KK的全ての親在腳中間(嚴格T-pose姿勢)
+                        float tposeOffsetZ = 0.055f * hipsTf.lossyScale.z;
+                        Vector3 v = new Vector3(0, 0, tposeOffsetZ);
+                        finalPos += (finalRot * v) - v;
+
+                        finalPos = new Vector3(-finalPos.x, finalPos.y, -finalPos.z) * mmdScaleFactor;
+                    }
                 }
                 else if (currentEntry.MmdName == "センター")
                 {
                     // "センター"的位置是相對於"全ての親"的
                     if (_boneCache.TryGetValue("cha", out var rootTf))
                     {
-                        Vector3 relativePos = Quaternion.Inverse(rootTf.rotation) * (bone.position - rootTf.position);
+                        finalPos = Quaternion.Inverse(rootTf.rotation) * (bone.position - rootTf.position);
 
                         // 正規化: Koikatsu的"センター"比"全ての親"高1.1435 * scale
-                        // 減去 Koikatsu 靜止姿態的基礎偏移，讓 relativePos 只剩下「純粹的動畫位移」
-                        float tposeHipsHeight = 1.1435f * bone.lossyScale.y;
-                        relativePos -= new Vector3(0, tposeHipsHeight, 0);
+                        // 減去 Koikatsu 靜止姿勢的基礎偏移，讓 finalPos 只剩下「VMD需要的純粹的動畫位移」
+                        float tposeOffsetY = 1.1435f * bone.lossyScale.y;
+                        float tposeOffsetZ = 0.055f * bone.lossyScale.z;
+                        finalPos -= new Vector3(0, tposeOffsetY, tposeOffsetZ);
 
                         // 應用 Pivot 補正
                         // 進行旋轉中心 (Pivot) 的補正計算，補正因旋轉中心不同而產生的動態位移
                         // PMX的センター高度:0.64
                         //  KK的センター高度:1.1435 * scale
-                        // V = P_pmx(0.64) - P_kk(1.1435 * scale)
-                        Vector3 v = new Vector3(0, 0.64f - tposeHipsHeight, 0);
-                        relativePos += (finalRot * v) - v;
+                        // PMX的センター在腳後跟(嚴格T-pose姿勢)
+                        //  KK的センター在腳中間(嚴格T-pose姿勢)
+                        // Vy = P_pmx(0.64) - P_kk(1.1435 * scale)
+                        Vector3 v = new Vector3(0, 0.64f - tposeOffsetY, -tposeOffsetZ);
+                        finalPos += (finalRot * v) - v;
 
-                        finalPos = new Vector3(-relativePos.x, relativePos.y, -relativePos.z) * mmdScaleFactor;
+                        finalPos = new Vector3(-finalPos.x, finalPos.y, -finalPos.z) * mmdScaleFactor;
                     }
                 }
                 // else 其他骨骼只能旋轉不能移動，維持 Vector3.zero
