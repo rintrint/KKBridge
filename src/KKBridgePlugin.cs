@@ -113,7 +113,10 @@ namespace KKBridge
         // ================================================================
         private static readonly List<BoneMapEntry> _boneMapDatabase = new List<BoneMapEntry>
         {
-            new BoneMapEntry( "cha",                "全ての親", null,       new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)),
+            // 親子關係是
+            // chaF/M_001 BodyTop p_cf_body_bone cf_j_root cf_n_height cf_j_hips ...
+            // 選擇cf_j_hips的直接Parent:"cf_n_height"來映射到"全ての親"，以獲得最可靠的結果，避免中間骨骼因任何意外有局部變換導致計算出現偏差
+            new BoneMapEntry( "cf_n_height",        "全ての親", null,       new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)),
             new BoneMapEntry( "cf_j_hips",          "センター", "全ての親", new Quaternion(-0.000000044f, 0.000000044f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f,-1.000000000f, 0.000000000f,-0.000000044f)),
             new BoneMapEntry( "EyeTargetL",         "左目",     "頭",       new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.561309993f,-0.577732265f,-0.416540653f, 0.421486050f)),
             new BoneMapEntry( "EyeTargetR",         "右目",     "頭",       new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion(-0.416540563f, 0.421486050f, 0.561309993f,-0.577732265f)),
@@ -208,9 +211,9 @@ namespace KKBridge
         }
 
         /// <summary>
-        /// 智能查找映射條目。優先精確匹配，其次嘗試根骨骼前綴匹配。
+        /// 查找映射條目。
         /// </summary>
-        public static bool TryGetBestMatchEntry(Transform bone, out BoneMapEntry entry)
+        public static bool TryGetMatchEntry(Transform bone, out BoneMapEntry entry)
         {
             if (bone == null)
             {
@@ -218,21 +221,7 @@ namespace KKBridge
                 return false;
             }
 
-            // 1. 優先嘗試精確名稱匹配
-            if (_mapByKkName.TryGetValue(bone.name, out entry))
-            {
-                return true;
-            }
-
-            // 2. 如果精確匹配失敗，嘗試根骨骼前綴匹配
-            if (bone.name.StartsWith("chaM_") || bone.name.StartsWith("chaF_"))
-            {
-                // 如果是 chaM/chaF 開頭，就去查找我們預定義的虛擬根骨骼條目 "cha"
-                return _mapByKkName.TryGetValue("cha", out entry);
-            }
-
-            entry = null;
-            return false;
+            return _mapByKkName.TryGetValue(bone.name, out entry);
         }
     }
 
@@ -833,48 +822,6 @@ namespace KKBridge
             }
         }
 
-        // 輔助方法: 找到 armature 根部
-        private Transform FindArmatureRoot(Transform bone)
-        {
-            Transform current = bone;
-
-            // 向上遍歷找到角色根部或包含 "chaF_" 或 "chaM_" 的節點
-            while (current != null)
-            {
-                // 檢查是否是角色根部的常見標識
-                if (current.name.StartsWith("chaF_", StringComparison.Ordinal) ||
-                    current.name.StartsWith("chaM_", StringComparison.Ordinal) ||
-                    current.name.Contains("armature") ||
-                    current.name.Contains("Armature") ||
-                    current.name == "BodyTop" ||
-                    (current.parent != null && (current.parent.name.StartsWith("chaF_", StringComparison.Ordinal) || current.parent.name.StartsWith("chaM_", StringComparison.Ordinal))))
-                {
-                    return current;
-                }
-                current = current.parent;
-            }
-
-            // 如果沒找到特定的根部，嘗試找到最上層有 ChaControl 組件的物件
-            current = bone;
-            while (current != null)
-            {
-                if (current.GetComponent<ChaControl>() != null)
-                {
-                    return current;
-                }
-                current = current.parent;
-            }
-
-            // 最後退而求其次，返回最頂層的 Transform
-            current = bone;
-            while (current.parent != null)
-            {
-                current = current.parent;
-            }
-
-            return current;
-        }
-
         /// <summary>
         /// 導出 Timeline 動畫的協程
         /// </summary>
@@ -1167,7 +1114,7 @@ namespace KKBridge
         /// </summary>
         private void CollectAllBoneDataForCharacter(OCIChar ociChar, List<VmdMotionFrame> frameList)
         {
-            // 經確認 ociChar.charInfo.transform 就是我們要找的根物件 (chaM_.../chaF_...)
+            // 獲取角色物件的根 Transform (例如 chaM_.../chaF_...)，這是我們搜尋的起點
             Transform instanceRootTf = ociChar.charInfo.transform;
             if (instanceRootTf == null)
             {
@@ -1175,30 +1122,32 @@ namespace KKBridge
                 return;
             }
 
-            // 建立快取
+            // 建立骨骼快取
             _boneCache = new Dictionary<string, Transform>();
             try
             {
-                // 遍歷所有在 BoneMapper 中定義的真實骨骼並快取
+                // 遍歷所有在 BoneMapper 中定義的骨骼，並從角色物件中找出對應的 Transform，然後存入快取
                 foreach (var entry in BoneMapper.GetAllEntries())
                 {
-                    if (entry.KkName == "cha") continue; // 忽略虛擬鍵名
-
+                    // 使用 FindDescendant 從根部開始往下查找具有指定名稱的骨骼
                     Transform boneTf = FindDescendant(instanceRootTf, entry.KkName);
                     if (boneTf != null)
                     {
+                        // 如果找到了，就以 KK 名稱作為 Key 存入快取
                         _boneCache[entry.KkName] = boneTf;
+                    }
+                    else
+                    {
+                        Log.LogWarning($"Bone '{entry.KkName}' not found in character '{ociChar.charInfo.name}'.");
                     }
                 }
 
-                // 關鍵一步: 將真正的根物件 Transform，用虛擬鍵名 "cha" 存入快取
-                _boneCache["cha"] = instanceRootTf;
-
-                // 從識別出的根物件開始遞迴
+                // 從最上層的根物件開始進行遞迴，處理所有子物件
                 CollectBoneDataRecursive(instanceRootTf, frameList);
             }
             finally
             {
+                // 清理快取
                 _boneCache = null;
             }
         }
@@ -1212,7 +1161,7 @@ namespace KKBridge
             if (bone == null) return;
 
             // 使用智能查找獲取當前骨骼的映射規則
-            if (BoneMapper.TryGetBestMatchEntry(bone, out BoneMapEntry currentEntry))
+            if (BoneMapper.TryGetMatchEntry(bone, out BoneMapEntry currentEntry))
             {
                 var frame = new VmdMotionFrame(currentEntry.MmdName);
                 Quaternion finalRot;
@@ -1263,7 +1212,7 @@ namespace KKBridge
                 else if (currentEntry.MmdName == "センター")
                 {
                     // "センター"的位置是相對於"全ての親"的
-                    if (_boneCache.TryGetValue("cha", out var rootTf))
+                    if (_boneCache.TryGetValue("cf_n_height", out var rootTf))
                     {
                         finalPos = Quaternion.Inverse(rootTf.rotation) * (bone.position - rootTf.position);
 
