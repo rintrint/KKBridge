@@ -1,9 +1,41 @@
 import math
+from contextlib import contextmanager
 
 import bpy
 from mathutils import Euler, Matrix, Quaternion, Vector
 
-globals().update(vars(bpy.data.texts["Text"].as_module()))
+
+@contextmanager
+def console_override():
+    try:
+        area = next(a for a in bpy.context.screen.areas if a.type == "CONSOLE")
+        with bpy.context.temp_override(area=area):
+            yield area
+    except StopIteration:
+        yield None
+
+
+def print(*texts):
+    text = " ".join(str(i) for i in texts)
+    with console_override() as area:
+        if area is None:
+            return
+        for line in text.split("\n"):
+            bpy.ops.console.scrollback_append(text=line, type="OUTPUT")
+
+
+def clear_text():
+    print("  ", len(bpy.data.texts))
+    for text in bpy.data.texts:
+        if "Text" not in text.name:
+            bpy.data.texts.remove(text)
+    print("->", len(bpy.data.texts))
+
+
+def clear_console():
+    with console_override() as area:
+        if area is not None:
+            bpy.ops.console.clear()
 
 
 def format_quaternion_xyzw(quat):
@@ -49,6 +81,13 @@ def calculate_bone_converter_quaternion(A):
     return B
 
 
+def disable_all_mmd_ik(armature):
+    """關閉所有MMD IK"""
+    for pose_bone in armature.pose.bones:
+        if hasattr(pose_bone, "mmd_ik_toggle"):
+            pose_bone.mmd_ik_toggle = False
+
+
 def unlock_and_setup_bones(armature):
     for bone in armature.pose.bones:
         bone.lock_rotation_w = False
@@ -63,14 +102,13 @@ def unlock_and_setup_bones(armature):
         bone.lock_scale[2] = False
 
 
-def disable_all_mmd_ik(armature):
-    """關閉所有MMD IK"""
-    disabled_count = 0
-    for pose_bone in armature.pose.bones:
-        if hasattr(pose_bone, "mmd_ik_toggle"):
-            pose_bone.mmd_ik_toggle = False
-            disabled_count += 1
-    print(f"已關閉 {disabled_count} 個MMD IK")
+def show_only_target_bones(armature, target_bone_names):
+    """只顯示目標骨骼，隱藏其他所有骨骼"""
+    for bone in armature.data.bones:
+        if bone.name in target_bone_names:
+            bone.hide = False
+        else:
+            bone.hide = True
 
 
 def set_bone_world_direction(armature, bone_name, target_direction):
@@ -108,7 +146,7 @@ def set_bone_world_direction(armature, bone_name, target_direction):
     # 設定世界矩陣，讓Blender自動計算正確的局部旋轉
     pose_bone.matrix = target_world_matrix
 
-    print(f"骨骼 '{bone_name}' 已設定為朝向 {target_direction}")
+    bpy.context.view_layer.update()
 
 
 def rotate_bone_around_y_axis(armature, bone_name, degrees):
@@ -134,7 +172,7 @@ def rotate_bone_around_y_axis(armature, bone_name, degrees):
     # 設定新的世界矩陣
     pose_bone.matrix = rotated_matrix
 
-    print(f"骨骼 '{bone_name}' 沿Y軸扭轉 {degrees}°")
+    bpy.context.view_layer.update()
 
 
 def output_bone_mapping_info(armature, bone_names):
@@ -152,16 +190,24 @@ def output_bone_mapping_info(armature, bone_names):
         # restPoseCorrection(目前的骨骼旋轉)
         restPoseCorrection = pose_bone.rotation_quaternion.copy()
 
-        # 特殊骨骼處理
-        if bone_name in {"左目", "右目"}:  # 尊重眼睛原來的旋轉
-            restPoseCorrection = Quaternion((1, 0, 0, 0))
-
         # coordinateConversion
         local_rotation_quat = pose_bone.bone.matrix_local.to_quaternion()
         coordinateConversion = calculate_bone_converter_quaternion(local_rotation_quat)
 
         result = f"{format_quaternion_xyzw(restPoseCorrection)}, {format_quaternion_xyzw(coordinateConversion)} {bone_name}"
         print(result)
+
+
+def reset_all_bones(armature):
+    """重置所有骨骼到預設狀態"""
+    for bone in armature.data.bones:
+        bone.hide = False
+    for bone in armature.pose.bones:
+        bone.location = (0.0, 0.0, 0.0)
+        bone.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+        bone.rotation_euler = (0.0, 0.0, 0.0)
+        bone.rotation_axis_angle = (0.0, 0.0, 1.0, 0.0)
+        bone.scale = (1.0, 1.0, 1.0)
 
 
 def bone_hierarchy_path(armature, bone_name):
@@ -175,6 +221,17 @@ def bone_hierarchy_path(armature, bone_name):
         path.append(bone.name)
         bone = bone.parent
     return tuple(reversed(path))
+
+
+def reset_special_bones_rotation(armature):
+    """特殊骨骼處理"""
+    # T-pose調到和Koikatsu盡可能一樣
+    armature.pose.bones["左目"].rotation_quaternion = Quaternion((1.0, 0.0, 0.0, 0.0))
+    armature.pose.bones["右目"].rotation_quaternion = Quaternion((1.0, 0.0, 0.0, 0.0))
+    armature.pose.bones["左足首"].rotation_quaternion = Quaternion((0.996766388, 0.064457990, 0.003096197, -0.047878154))
+    armature.pose.bones["右足首"].rotation_quaternion = Quaternion((0.996766388, 0.064457990, -0.003096197, 0.047878154))
+    armature.pose.bones["左足先EX"].rotation_quaternion = Quaternion((0.999847651, -0.017452359, 0.000000000, 0.000000000))
+    armature.pose.bones["右足先EX"].rotation_quaternion = Quaternion((0.999847651, -0.017452359, 0.000000000, 0.000000000))
 
 
 def align_all_bones():
@@ -249,44 +306,46 @@ def align_all_bones():
     # 備份排序前的骨骼名稱列表
     bone_names_unsort = [bone_name for bone_name, _, _ in bone_directions]
 
-    print("=== 第負二步：按階層順序排序骨骼 ===")
-    # 第-2步：使用階層路徑對bone_directions進行排序
-    bone_directions.sort(key=lambda x: bone_hierarchy_path(armature, x[0]))
-    # 輸出排序結果
-    print("骨骼處理順序（按階層排序）：")
-    for i, (bone_name, direction, y_rotation) in enumerate(bone_directions):
-        hierarchy_path = bone_hierarchy_path(armature, bone_name)
-        print(f"{i + 1:2d}. {bone_name} (階層深度: {len(hierarchy_path)})")
+    # === 第負四步：重置所有骨骼 ===
+    reset_all_bones(armature)
+    bpy.context.view_layer.update()
 
-    print("=== 第負一步：關閉所有MMD IK ===")
-    # 第-1步：關閉所有MMD IK
+    # === 第負三步：按階層順序排序骨骼 ==="
+    bone_directions.sort(key=lambda x: bone_hierarchy_path(armature, x[0]))
+    bpy.context.view_layer.update()
+
+    # === 第負二步：關閉所有MMD IK ==="
     disable_all_mmd_ik(armature)
     bpy.context.view_layer.update()
 
-    print("=== 第零步：設定骨骼鎖定屬性 ===")
-    # 第零步：解鎖骨骼鎖定，方便CtrlRGS
+    # === 第負一步：設定骨骼鎖定屬性 ===
     unlock_and_setup_bones(armature)
     bpy.context.view_layer.update()
 
-    print("=== 第一步：調整骨骼方向 ===")
+    # === 第零步：顯示目標骨骼，隱藏其他骨骼 ===
+    show_only_target_bones(armature, bone_names_unsort)
+    bpy.context.view_layer.update()
+
     # 第一步：調整骨骼方向
     for bone_name, direction, y_rotation in bone_directions:
         set_bone_world_direction(armature, bone_name, direction)
+    bpy.context.view_layer.update()
 
-    print("=== 第二步：沿Y軸扭轉 ===")
-    # 第二步：對需要的骨骼進行Y軸扭轉
+    # 第二步：沿Y軸扭轉
     for bone_name, direction, y_rotation in bone_directions:
         if y_rotation != 0:
             rotate_bone_around_y_axis(armature, bone_name, y_rotation)
-
-    # 更新場景
     bpy.context.view_layer.update()
 
-    # 第三步：輸出骨骼映射資訊
-    output_bone_mapping_info(armature, bone_names_unsort)
+    # 第三步：特殊骨骼處理
+    reset_special_bones_rotation(armature)
+    bpy.context.view_layer.update()
 
-    print("\n所有骨骼方向調整完成!")
+    # 第四步：輸出骨骼映射資訊
+    output_bone_mapping_info(armature, bone_names_unsort)
 
 
 # 執行腳本
+clear_text()
+clear_console()
 align_all_bones()
