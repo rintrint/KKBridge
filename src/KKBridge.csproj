@@ -79,6 +79,7 @@
     <Compile Include="Compatibility\Action.cs" />
     <Compile Include="Compatibility\TimelineCompatibility.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Vmd\VmdCore.cs" />
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Connected Services\" />
