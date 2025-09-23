@@ -65,7 +65,6 @@ using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
 using KKBridge.Compatibility;
-using KKBridge.Extensions;
 using KKBridge.Vmd;
 using Studio;
 using System;
@@ -514,42 +513,6 @@ namespace KKBridge
         }
 
         /// <summary>
-        /// 從當前 Assembly (DLL) 的嵌入式資源中載入圖片
-        /// </summary>
-        /// <param name="resourceName">資源的完整名稱 (專案名稱.檔案名稱)</param>
-        /// <returns>載入後的 Texture2D 物件</returns>
-        private Texture2D LoadImageFromAssembly(string resourceName)
-        {
-            try
-            {
-                // 獲取當前正在執行的 Assembly (也就是 KKBridge.dll)
-                Assembly assembly = Assembly.GetExecutingAssembly();
-
-                // 讀取嵌入式資源的數據流
-                using (Stream stream = assembly.GetManifestResourceStream(resourceName))
-                {
-                    if (stream == null) return null;
-
-                    // 將數據流讀入位元組陣列
-                    byte[] buffer = new byte[stream.Length];
-                    stream.Read(buffer, 0, buffer.Length);
-
-                    // 從位元組陣列創建 Texture2D
-                    // 尺寸參數 (2, 2) 不重要，LoadImage 會自動調整
-                    Texture2D texture = new Texture2D(2, 2);
-                    texture.LoadImage(buffer); // 這會自動解析PNG並載入
-
-                    return texture;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.LogError($"Error loading image from Assembly: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
         /// 導出 Timeline 動畫的協程
         /// </summary>
         private System.Collections.IEnumerator ExportTimelineAnimation_Coroutine()
@@ -603,7 +566,8 @@ namespace KKBridge
                     if (_exportButtonText != null) _exportButtonText.text = "Export Timeline to VMD";
                     yield break;
                 }
-                Log.LogInfo($"Timeline duration: {timelineDuration:F2} seconds (at {fps}fps) for {characters.Count} character(s).");
+                Log.LogInfo($"Timeline duration: {timelineDuration:F2} seconds for {characters.Count} character(s).");
+                Log.LogInfo($"Baking VMD at {fps}fps.");
 
                 // 儲存並設定 Time.captureFramerate
                 originalCaptureFramerate = Time.captureFramerate;
@@ -644,6 +608,8 @@ namespace KKBridge
                 int currentFrame = 0;
                 float previousTime = -1f;
 
+                var boneProcessor = new VmdBoneProcessor(Log);
+
                 while (_isExporting) // 增加一個開關，以便可以從外部停止
                 {
                     // 1. 等待下一影格
@@ -662,19 +628,24 @@ namespace KKBridge
                     // 3. 檢查播放是否暫停、結束、循環、倒退
                     if (currentTime <= previousTime)
                     {
-                        Log.LogInfo($"Detected Timeline pause/end/loop/rewind. Stopping recording at frame {currentFrame}.");
+                        Log.LogInfo($"Detected Timeline pause/end/loop/rewind. Stopping recording.");
                         break;
                     }
 
                     // 4. 在這一影格內，遍歷所有角色並收集數據
                     foreach (var ociChar in characters)
                     {
-                        var singleFrameBoneData = new List<VmdMotionFrame>();
+                        List<VmdMotionFrame> singleFrameBoneData;
                         Transform instanceRootTf = ociChar.charInfo.transform;
 
-                        if (characterBoneCaches.TryGetValue(ociChar, out var currentBoneCache) && instanceRootTf != null)
+                        if (characterBoneCaches.TryGetValue(ociChar, out var BoneCache) && instanceRootTf != null)
                         {
-                            CollectAllBoneDataForCharacter(instanceRootTf, currentBoneCache, singleFrameBoneData);
+                            // 呼叫處理器來獲取當前影格的數據
+                            singleFrameBoneData = boneProcessor.ProcessCharacter(instanceRootTf, BoneCache);
+                        }
+                        else
+                        {
+                            singleFrameBoneData = new List<VmdMotionFrame>(); // Fallback to empty list
                         }
 
                         foreach (var boneFrame in singleFrameBoneData)
@@ -683,11 +654,6 @@ namespace KKBridge
                         }
                         // 將當前影格的數據添加到對應角色的列表中
                         allCharactersFrames[ociChar].AddRange(singleFrameBoneData);
-                    }
-
-                    if (currentFrame % 100 == 0)
-                    {
-                        Log.LogInfo($"Recording frame: {currentFrame}, Time: {currentTime:F2}s / {timelineDuration:F2}s");
                     }
 
                     previousTime = currentTime;
@@ -757,53 +723,42 @@ namespace KKBridge
             }
         }
 
-        /// <summary>
-        /// 將四元數旋轉轉換為VMD格式的旋轉
-        /// 使用四元數運算進行坐標變換
-        /// </summary>
-        /// <param name="transformXyzw">變換四元數，用於坐標變換</param>
-        /// <param name="rotationXyzw">原始旋轉四元數</param>
-        /// <returns>轉換後的VMD旋轉四元數</returns>
-        public static Quaternion ConvertRotation(Quaternion transformXyzw, Quaternion rotationXyzw)
-        {
-            // 坐標變換
-            // C = A * B * A.Inverse();
-            // 優化: 單位四元數共軛和逆等價，可用共軛取代逆，更高效。
-            // C = A * B * A.conjugated();
-            Quaternion result = transformXyzw * rotationXyzw * transformXyzw.conjugated();
-            return result;
-        }
+        #region Helper Methods (輔助函式區)
 
         /// <summary>
-        /// 將四元數旋轉轉換為VMD格式的旋轉
-        /// 使用軸角表示法進行坐標變換
+        /// 從當前 Assembly (DLL) 的嵌入式資源中載入圖片
         /// </summary>
-        /// <param name="transformXyzw">變換四元數，用於坐標變換</param>
-        /// <param name="rotationXyzw">原始旋轉四元數</param>
-        /// <returns>轉換後的VMD旋轉四元數</returns>
-        public static Quaternion ConvertRotationLegacy(Quaternion transformXyzw, Quaternion rotationXyzw)
+        /// <param name="resourceName">資源的完整名稱 (專案名稱.檔案名稱)</param>
+        /// <returns>載入後的 Texture2D 物件</returns>
+        private Texture2D LoadImageFromAssembly(string resourceName)
         {
-            Vector3 axis;
-            float angle;
-            // 將四元數轉換為軸角表示法
-            rotationXyzw.ToAngleAxis(out angle, out axis);
-            // 使用變換四元數轉換旋轉軸
-            Vector3 finalAxis = transformXyzw * axis;
-            // 使用轉換後的軸和原始角度重建四元數
-            Quaternion convertedRotation = Quaternion.AngleAxis(angle, finalAxis.normalized);
-            return convertedRotation;
-        }
+            try
+            {
+                // 獲取當前正在執行的 Assembly (也就是 KKBridge.dll)
+                Assembly assembly = Assembly.GetExecutingAssembly();
 
-        /// <summary>
-        /// 將 0-360 度的歐拉角轉換為 -180-180 度的範圍，以便進行比較和限制。
-        /// </summary>
-        private float NormalizeAngle(float angle)
-        {
-            while (angle > 180f)
-                angle -= 360f;
-            while (angle < -180f)
-                angle += 360f;
-            return angle;
+                // 讀取嵌入式資源的數據流
+                using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+                {
+                    if (stream == null) return null;
+
+                    // 將數據流讀入位元組陣列
+                    byte[] buffer = new byte[stream.Length];
+                    stream.Read(buffer, 0, buffer.Length);
+
+                    // 從位元組陣列創建 Texture2D
+                    // 尺寸參數 (2, 2) 不重要，LoadImage 會自動調整
+                    Texture2D texture = new Texture2D(2, 2);
+                    texture.LoadImage(buffer); // 這會自動解析PNG並載入
+
+                    return texture;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.LogError($"Error loading image from Assembly: {ex.Message}");
+                return null;
+            }
         }
 
         /// <summary>
@@ -832,281 +787,6 @@ namespace KKBridge
             }
             return null; // 沒找到
         }
-
-        /// <summary>
-        /// 為單一角色收集所有骨骼數據的啟動函數。
-        /// 負責動態識別根骨骼、建立快取，並啟動遞迴。
-        /// </summary>
-        private void CollectAllBoneDataForCharacter(Transform instanceRootTf, Dictionary<string, Transform> boneCache, List<VmdMotionFrame> frameList)
-        {
-            if (instanceRootTf == null)
-            {
-                Log.LogError("Character root transform is null. Skipping.");
-                return;
-            }
-            CollectBoneDataRecursive(instanceRootTf, boneCache, frameList);
-        }
-
-        /// <summary>
-        /// 遞迴收集骨骼數據。
-        /// 採用統一計算邏輯，數據和規則由 BoneMapper 提供。
-        /// </summary>
-        private void CollectBoneDataRecursive(Transform bone, Dictionary<string, Transform> boneCache, List<VmdMotionFrame> frameList)
-        {
-            if (bone == null) return;
-
-            // 使用智能查找獲取當前骨骼的映射規則
-            if (BoneMapper.TryGetMatchEntry(bone, out BoneMapEntry currentEntry))
-            {
-                var frame = new VmdMotionFrame(currentEntry.MmdName);
-                Quaternion finalRot;
-
-                // --- 統一旋轉計算邏輯 ---
-                if (currentEntry.MmdParentName == null)
-                {
-                    // 情況1: 是根骨骼 (父物件名為 null)，直接使用世界旋轉
-                    finalRot = bone.rotation;
-                }
-                else
-                {
-                    // 情況2: 是子骨骼，查找其父物件並計算相對旋轉
-                    if (BoneMapper.TryGetEntryByMmdName(currentEntry.MmdParentName, out var parentEntry) &&
-                        boneCache.TryGetValue(parentEntry.KkName, out var parentTf))
-                    {
-                        // 應用通用公式
-                        finalRot = Quaternion.Inverse(parentTf.rotation) * bone.rotation;
-                    }
-                    else
-                    {
-                        // Fallback: 如果因故找不到父物件，記錄日誌並退回使用局部旋轉
-                        finalRot = bone.localRotation;
-                        Log.LogWarning($"Could not find parent transform for '{currentEntry.MmdName}'. Parent MMD name: '{currentEntry.MmdParentName}'. Falling back to localRotation.");
-                    }
-                }
-
-                // --- 位置計算邏輯 ---
-                Vector3 finalPos = Vector3.zero;
-                const float mmdScaleFactor = 12.5f;
-                if (currentEntry.MmdName == "全ての親")
-                {
-                    if (boneCache.TryGetValue("cf_j_hips", out var hipsTf))
-                    {
-                        // 根骨骼用 World Position
-                        finalPos = bone.position;
-
-                        // 應用 Pivot 補正
-                        // PMX的全ての親在腳後跟(嚴格T-pose姿勢)
-                        //  KK的全ての親在腳中間(嚴格T-pose姿勢)
-                        float tposeOffsetZ = 0.055f * hipsTf.lossyScale.z;
-                        Vector3 v = new Vector3(0, 0, tposeOffsetZ);
-                        finalPos += (finalRot * v) - v;
-
-                        finalPos = new Vector3(-finalPos.x, finalPos.y, -finalPos.z) * mmdScaleFactor;
-                    }
-                }
-                else if (currentEntry.MmdName == "センター")
-                {
-                    // "センター"的位置是相對於"全ての親"的
-                    if (boneCache.TryGetValue("cf_n_height", out var rootTf))
-                    {
-                        finalPos = Quaternion.Inverse(rootTf.rotation) * (bone.position - rootTf.position);
-
-                        // 正規化: Koikatsu的"センター"比"全ての親"高1.1435 * scale
-                        // 減去 Koikatsu 靜止姿勢的基礎偏移，讓 finalPos 只剩下「VMD需要的純粹的動畫位移」
-                        float tposeOffsetY = 1.1435f * bone.lossyScale.y;
-                        float tposeOffsetZ = 0.055f * bone.lossyScale.z;
-                        finalPos -= new Vector3(0, tposeOffsetY, tposeOffsetZ);
-
-                        // 應用 Pivot 補正
-                        // 進行旋轉中心 (Pivot) 的補正計算，補正因旋轉中心不同而產生的動態位移
-                        // PMX的センター高度:0.64
-                        //  KK的センター高度:1.1435 * scale
-                        // PMX的センター在腳後跟(嚴格T-pose姿勢)
-                        //  KK的センター在腳中間(嚴格T-pose姿勢)
-                        // Vy = P_pmx(0.64) - P_kk(1.1435 * scale)
-                        Vector3 v = new Vector3(0, 0.64f - tposeOffsetY, -tposeOffsetZ);
-                        finalPos += (finalRot * v) - v;
-
-                        finalPos = new Vector3(-finalPos.x, finalPos.y, -finalPos.z) * mmdScaleFactor;
-                    }
-                }
-                // else 其他骨骼只能旋轉不能移動，維持 Vector3.zero
-
-                // --- 統一應用修正數據 ---
-                switch (currentEntry.MmdName)
-                {
-                    case "全ての親":
-                        {
-                            finalRot = new Quaternion(finalRot.x, -finalRot.y, -finalRot.z, finalRot.w);
-                            break;
-                        }
-                    case "センター":
-                        {
-                            break;
-                        }
-                    case "左目":
-                    case "右目":
-                        {
-                            {
-                                // 根據EyeLookController，EyeLookCalc，EyeLookMaterialControll的代碼
-                                // Koikatsu眼睛是貼圖移動，角度轉像素偏移的線性變換，需測量等價縮放因子
-
-                                // 為垂直(上/下)和水平(左/右)設定完全獨立的縮放因子
-                                // 根據實驗觀察微調這三個數值
-                                const float eyeIntensityFactorX_Up = 0.55f;     // 垂直向上看的縮放
-                                const float eyeIntensityFactorX_Down = 1.0f;    // 垂直向下看的縮放
-                                const float eyeIntensityFactorY = 0.45f;        // 水平方向(左右看)的縮放
-
-                                // 獲取 EyeTarget 的原始局部旋轉
-                                Quaternion rawRotation = finalRot;
-                                Vector3 rawEuler = rawRotation.eulerAngles;
-
-                                // 1. 將原始歐拉角標準化到 -180 ~ 180 度範圍
-                                float normalizedX = NormalizeAngle(rawEuler.x);
-                                float normalizedY = NormalizeAngle(rawEuler.y);
-                                float normalizedZ = NormalizeAngle(rawEuler.z);
-
-                                // 2. 判斷向上還是向下看，並應用不同的縮放因子
-                                float scaledX;
-                                if (normalizedX < 0) // 角度為負，是向上看
-                                {
-                                    scaledX = normalizedX * eyeIntensityFactorX_Up;
-                                }
-                                else // 角度為正或零，是向下看
-                                {
-                                    scaledX = normalizedX * eyeIntensityFactorX_Down;
-                                }
-
-                                // 3. 獨立縮放水平方向的角度
-                                float scaledY = normalizedY * eyeIntensityFactorY;
-
-                                // 4. 將縮放後的歐拉角重新組合成四元數
-                                finalRot = Quaternion.Euler(scaledX, scaledY, normalizedZ);
-                            }
-                            finalRot = finalRot.conjugated();
-                            finalRot = ConvertRotation(Quaternion.Euler(90, 0, -90), finalRot);
-                            break;
-                        }
-                    case "首":
-                    case "頭":
-                    case "上半身":
-                    case "上半身2":
-                        {
-                            finalRot = new Quaternion(finalRot.x, -finalRot.y, -finalRot.z, finalRot.w);
-                            break;
-                        }
-                    case "下半身":
-                        {
-                            break;
-                        }
-                    case "左親指０":
-                    case "左親指１":
-                    case "左親指２":
-                        {
-                            finalRot = new Quaternion(-finalRot.x, finalRot.y, -finalRot.z, finalRot.w);
-                            finalRot = ConvertRotation(Quaternion.Euler(0, 0, -90), finalRot);
-                            break;
-                        }
-                    case "左人指１":
-                    case "左人指２":
-                    case "左人指３":
-                    case "左中指１":
-                    case "左中指２":
-                    case "左中指３":
-                    case "左薬指１":
-                    case "左薬指２":
-                    case "左薬指３":
-                    case "左小指１":
-                    case "左小指２":
-                    case "左小指３":
-                        {
-                            finalRot = ConvertRotation(Quaternion.Euler(0, 90, 90), finalRot);
-                            break;
-                        }
-                    case "左肩":
-                    case "左腕":
-                    case "左ひじ":
-                    case "左手首":
-                        {
-                            finalRot = ConvertRotation(Quaternion.Euler(0, 90, 90), finalRot);
-                            break;
-                        }
-                    case "右親指０":
-                    case "右親指１":
-                    case "右親指２":
-                        {
-                            finalRot = new Quaternion(-finalRot.x, finalRot.y, -finalRot.z, finalRot.w);
-                            finalRot = ConvertRotation(Quaternion.Euler(0, 0, 90), finalRot);
-                            break;
-                        }
-                    case "右人指１":
-                    case "右人指２":
-                    case "右人指３":
-                    case "右中指１":
-                    case "右中指２":
-                    case "右中指３":
-                    case "右薬指１":
-                    case "右薬指２":
-                    case "右薬指３":
-                    case "右小指１":
-                    case "右小指２":
-                    case "右小指３":
-                        {
-                            finalRot = new Quaternion(-finalRot.x, -finalRot.y, finalRot.z, finalRot.w);
-                            finalRot = ConvertRotation(Quaternion.Euler(0, -90, 90), finalRot);
-                            break;
-                        }
-                    case "右肩":
-                    case "右腕":
-                    case "右ひじ":
-                    case "右手首":
-                        {
-                            finalRot = new Quaternion(-finalRot.x, finalRot.y, -finalRot.z, finalRot.w);
-                            finalRot = ConvertRotation(Quaternion.Euler(0, -90, 90), finalRot);
-                            break;
-                        }
-                    case "左足":
-                    case "右足":
-                    case "左ひざ":
-                    case "右ひざ":
-                        {
-                            break;
-                        }
-                    case "左足首":
-                    case "右足首":
-                        {
-                            finalRot = ConvertRotation(Quaternion.Euler(90, 0, 0), finalRot);
-                            break;
-                        }
-                    case "左足先EX":
-                    case "右足先EX":
-                        {
-                            finalRot = new Quaternion(-finalRot.x, -finalRot.y, finalRot.z, finalRot.w);
-                            finalRot = ConvertRotation(Quaternion.Euler(90, 0, 0), finalRot);
-                            break;
-                        }
-                    default:
-                        {
-                            break;
-                        }
-                }
-
-                finalRot = currentEntry.RestPoseCorrection * finalRot;
-                finalRot = ConvertRotation(currentEntry.CoordinateConversion, finalRot);
-
-                frame.Rotation = finalRot.normalized();
-                frame.Position = finalPos;
-                frameList.Add(frame);
-            }
-
-            // 遞迴遍歷所有子物件
-            foreach (Transform child in bone)
-            {
-                CollectBoneDataRecursive(child, boneCache, frameList);
-            }
-        }
-
-        #region Helper Methods (輔助函式區)
 
         /// <summary>
         /// 將一系列物件 (字串、數字等) 組合並清理成一個安全的檔案名稱。
