@@ -716,26 +716,7 @@ namespace KKBridge
                         continue;
                     }
 
-                    var ikFrames = new List<VmdIkFrame> { new VmdIkFrame { FrameNumber = 0, Display = true } };
-                    string[] ikNames = {
-                        "左腕ＩＫ",
-                        "右腕ＩＫ",
-                        "左足ＩＫ",
-                        "右足ＩＫ",
-                        "左つま先ＩＫ",
-                        "右つま先ＩＫ",
-
-                        "ﾈｸﾀｲＩＫ",
-                        "右髪ＩＫ",
-                        "左髪ＩＫ",
-                        "しっぽＩＫ",
-                        "右腰ベルトＩＫ",
-                        "左腰ベルトＩＫ",
-                    };
-                    foreach (string ikName in ikNames)
-                    {
-                        ikFrames[0].IkEnables.Add(new VmdIkEnable(ikName, false));
-                    }
+                    var ikFrames = new List<VmdIkFrame> { VmdIkFrame.CreateDefault() };
 
                     string vmdFileName = CreateSafeFileName(charIndex, "_", charName, "_timeline", ".vmd");
                     string vmdFilePath = Path.Combine(outputDirectory, vmdFileName);

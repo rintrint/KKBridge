@@ -192,11 +192,44 @@ namespace KKBridge.Vmd
         public bool Display { get; set; }
         public ICollection<VmdIkEnable> IkEnables { get; }
 
+        /// <summary>
+        /// 預設 IK 骨骼名稱列表。
+        /// </summary>
+        public static readonly string[] DefaultIkBoneNames = {
+            "左腕ＩＫ",
+            "右腕ＩＫ",
+            "左足ＩＫ",
+            "右足ＩＫ",
+            "左つま先ＩＫ",
+            "右つま先ＩＫ",
+
+            "ﾈｸﾀｲＩＫ",
+            "右髪ＩＫ",
+            "左髪ＩＫ",
+            "しっぽＩＫ",
+            "右腰ベルトＩＫ",
+            "左腰ベルトＩＫ",
+        };
+
         public VmdIkFrame()
         {
             FrameNumber = 0;
             Display = true;
             IkEnables = new List<VmdIkEnable>();
+        }
+
+        /// <summary>
+        /// 創建一個包含所有預設 IK 骨骼並將其全部禁用的 VMD IK 框架。
+        /// </summary>
+        /// <returns>一個設定好的 VmdIkFrame 物件。</returns>
+        public static VmdIkFrame CreateDefault()
+        {
+            var frame = new VmdIkFrame { FrameNumber = 0, Display = true };
+            foreach (string ikName in DefaultIkBoneNames)
+            {
+                frame.IkEnables.Add(new VmdIkEnable(ikName, false));
+            }
+            return frame;
         }
     }
 
