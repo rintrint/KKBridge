@@ -522,6 +522,7 @@ namespace KKBridge.Vmd
                         // PMX的センター在腳後跟(嚴格T-pose姿勢)
                         //  KK的センター在腳中間(嚴格T-pose姿勢)
                         // Vy = P_pmx(0.64) - P_kk(1.1435 * scale)
+                        // 不同PMX的模型センター高度略微不同，使用VMD前需要手動調整到0.64
                         Vector3 v = new Vector3(0, 0.64f - tposeOffsetY, -tposeOffsetZ);
                         finalPos += (finalRot * v) - v;
 

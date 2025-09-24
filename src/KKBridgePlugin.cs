@@ -76,6 +76,7 @@ using System.Reflection;
 using System.Text;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace KKBridge
@@ -148,13 +149,45 @@ namespace KKBridge
                 );
             }
 
-            Log.LogInfo("KKBridge Plugin loaded!");
+            SceneManager.sceneLoaded += OnSceneLoaded;
+
+            // Log.LogInfo("KKBridge Plugin loaded!");
+        }
+
+        /// <summary>
+        /// 當插件被銷毀時，取消註冊事件以避免內存洩漏
+        /// </summary>
+        private void OnDestroy()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+
+        /// <summary>
+        /// 當場景加載完成時會被呼叫的方法
+        /// </summary>
+        private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            if (scene.name == "Studio")
+            {
+                // 在正確的時機初始化按鈕
+                InitializeButton();
+            }
         }
 
         /// <summary>
         /// 插件載入後立即執行。這是 Unity 的生命週期函式，在腳本啟用時會被呼叫一次。
         /// </summary>
         private void Start()
+        {
+            // 當插件啟動時（包括熱重載），檢查當前是否就在Studio場景
+            // 如果是，就立即嘗試初始化按鈕
+            if (SceneManager.GetActiveScene().name == "MHM_ILLUSION_HS_002")
+            {
+                InitializeButton();
+            }
+        }
+
+        private void InitializeButton()
         {
             // 強制銷毀熱重載時可能殘留的舊視窗，執行兩次來避免自動打開新視窗
             ToggleKkBridgeWindow();
@@ -443,7 +476,8 @@ namespace KKBridge
 
         private System.Collections.IEnumerator CreateKKBridgeButton_Coroutine()
         {
-            yield return null;
+            // 等其他插件，控制按鈕位置
+            yield return new WaitForSeconds(0.3f);
 
             string buttonPath = "StudioScene/Canvas System Menu/01_Button/KKBridge Button";
             GameObject existingButton = GameObject.Find(buttonPath);
