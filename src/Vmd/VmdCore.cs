@@ -650,21 +650,24 @@ namespace KKBridge.Vmd
     }
     #endregion
 
-    public class KkBlendshapeTarget
+    // 儲存單一 Morph 目標的資訊
+    public class MorphMapping
     {
-        public string Mesh;
-        public string Name;
+        public string Morph { get; }
+        public float MappingWeight { get; }
+
+        public MorphMapping(string morph, float weight)
+        {
+            Morph = morph;
+            MappingWeight = weight;
+        }
     }
 
-    public class PmxMorphMap
-    {
-        public string PmxMorph;
-        public KkBlendshapeTarget KkBlendshape;
-    }
-
+    // 儲存整個設定檔的結構
     public class MorphMappingConfig
     {
-        public List<PmxMorphMap> MorphMappings;
+        // 字典的值是一個 MorphMapping 的列表 (List)
+        public Dictionary<string, List<MorphMapping>> BsToMorphMappings { get; set; }
     }
 
     public class VmdMorphFrame
@@ -759,7 +762,7 @@ namespace KKBridge.Vmd
             if (!File.Exists(_settingsFilePath))
             {
                 _logger?.LogError($"Load failed: Settings file '{_settingsFilePath}' does not exist.");
-                _config = new MorphMappingConfig { MorphMappings = new List<PmxMorphMap>() };
+                _config = new MorphMappingConfig { BsToMorphMappings = new Dictionary<string, List<MorphMapping>>() };
                 return;
             }
 
@@ -769,54 +772,69 @@ namespace KKBridge.Vmd
                 if (string.IsNullOrEmpty(jsonContent))
                 {
                     _logger?.LogError("Load failed: config.json is empty.");
-                    _config = new MorphMappingConfig { MorphMappings = new List<PmxMorphMap>() };
+                    _config = new MorphMappingConfig { BsToMorphMappings = new Dictionary<string, List<MorphMapping>>() };
                     return;
                 }
 
                 // --- 使用 SimpleJSON 進行解析 ---
                 var jsonNode = JSON.Parse(jsonContent);
 
-                if (jsonNode == null || !jsonNode.HasKey("MorphMappings") || !jsonNode["MorphMappings"].IsArray)
+                if (jsonNode == null || !jsonNode.HasKey("BsToMorphMappings") || !jsonNode["BsToMorphMappings"].IsObject)
                 {
-                    _logger?.LogWarning("Failed to parse mappings from config.json. 'MorphMappings' key not found or it's not an array.");
-                    _config = new MorphMappingConfig { MorphMappings = new List<PmxMorphMap>() };
+                    _logger?.LogWarning("Failed to parse mappings from config.json. 'BsToMorphMappings' key not found or it's not an object.");
+                    _config = new MorphMappingConfig { BsToMorphMappings = new Dictionary<string, List<MorphMapping>>() };
                     return;
                 }
 
-                // --- 手動將 JSON 節點轉換為 C# 物件 ---
-                var newMappingsList = new List<PmxMorphMap>();
-                JSONArray mappingsArray = jsonNode["MorphMappings"].AsArray;
+                // 以下是新的解析邏輯
+                var newMappingsDict = new Dictionary<string, List<MorphMapping>>();
+                JSONObject mappingsObject = jsonNode["BsToMorphMappings"].AsObject;
 
-                foreach (JSONNode mappingNode in mappingsArray)
+                // 遍歷所有 BlendShape (例如 "eye_face.f00_def_cl")
+                foreach (KeyValuePair<string, JSONNode> kvp in mappingsObject)
                 {
-                    if (!mappingNode.IsObject) continue; // 跳過無效的條目
+                    string kkBlendshapeName = kvp.Key;
+                    JSONNode valueNode = kvp.Value;
 
-                    var pmxMap = new PmxMorphMap
+                    // 預期值永遠是一個陣列
+                    if (valueNode.IsArray)
                     {
-                        PmxMorph = mappingNode["PmxMorph"],
-                        KkBlendshape = null // Initialize as null
-                    };
-
-                    if (mappingNode.HasKey("KkBlendshape") && mappingNode["KkBlendshape"].IsObject)
-                    {
-                        JSONNode bsNode = mappingNode["KkBlendshape"];
-                        pmxMap.KkBlendshape = new KkBlendshapeTarget
+                        var mappingList = new List<MorphMapping>();
+                        // 遍歷陣列中的每一個目標 Morph 物件
+                        foreach (JSONNode itemNode in valueNode.AsArray)
                         {
-                            Mesh = bsNode["Mesh"],
-                            Name = bsNode["Name"]
-                        };
+                            if (itemNode.IsObject)
+                            {
+                                JSONObject mappingInfo = itemNode.AsObject;
+                                if (mappingInfo.HasKey("Morph") && mappingInfo.HasKey("MappingWeight"))
+                                {
+                                    string pmxMorphName = mappingInfo["Morph"].Value;
+                                    float weight = mappingInfo["MappingWeight"].AsFloat;
+
+                                    // 只有 Morph 名稱不是空字串時才加入
+                                    if (!string.IsNullOrEmpty(pmxMorphName))
+                                    {
+                                        mappingList.Add(new MorphMapping(pmxMorphName, weight));
+                                    }
+                                }
+                            }
+                        }
+
+                        // 如果這個 BlendShape 至少有一個有效的目標 Morph，才將其加入字典
+                        if (mappingList.Count > 0 && !newMappingsDict.ContainsKey(kkBlendshapeName))
+                        {
+                            newMappingsDict.Add(kkBlendshapeName, mappingList);
+                        }
                     }
-                    newMappingsList.Add(pmxMap);
                 }
 
-                _config = new MorphMappingConfig { MorphMappings = newMappingsList };
-
-                _logger?.LogInfo($"Successfully loaded {_config.MorphMappings.Count} morph mappings.");
+                _config = new MorphMappingConfig { BsToMorphMappings = newMappingsDict };
+                _logger?.LogInfo($"Successfully loaded {_config.BsToMorphMappings.Count} morph mappings.");
             }
             catch (Exception ex)
             {
                 _logger?.LogError($"An unexpected error occurred while parsing config.json: {ex.ToString()}");
-                _config = null;
+                _config = new MorphMappingConfig { BsToMorphMappings = new Dictionary<string, List<MorphMapping>>() }; // 發生錯誤時初始化為空
             }
         }
 
@@ -826,40 +844,70 @@ namespace KKBridge.Vmd
         public List<VmdMorphFrame> ProcessCharacter(OCIChar ociChar, uint frameNumber)
         {
             var frameList = new List<VmdMorphFrame>();
-            if (_config == null || ociChar == null) return frameList;
+            if (_config == null || _config.BsToMorphMappings == null || ociChar == null) return frameList;
 
+            var tempFrames = new Dictionary<string, VmdMorphFrame>();
             // 為提高效率，先快取一次角色的 SkinnedMeshRenderer
             BuildRendererCache(ociChar.charInfo.transform);
 
-            foreach (var mapping in _config.MorphMappings)
+            // 主迴圈遍歷設定結構
+            foreach (KeyValuePair<string, List<MorphMapping>> mappingEntry in _config.BsToMorphMappings)
             {
-                var kkBs = mapping.KkBlendshape;
-                if (kkBs == null) continue; // Skip if this mapping is incomplete
+                string kkBlendshapeName = mappingEntry.Key;
+                List<MorphMapping> targetMorphs = mappingEntry.Value; // 這是一個列表，包含所有目標 Morph
 
-                float currentWeight = 0f;
-                if (_rendererCache.TryGetValue(kkBs.Mesh, out var renderer))
+                float currentWeight = 0.0f;
+                bool blendshapeFound = false;
+
+                foreach (var renderer in _rendererCache.Values)
                 {
-                    int index = renderer.sharedMesh.GetBlendShapeIndex(kkBs.Name);
+                    if (renderer == null || renderer.sharedMesh == null) continue;
+
+                    int index = renderer.sharedMesh.GetBlendShapeIndex(kkBlendshapeName);
                     if (index != -1)
                     {
                         // 讀取 KK 角色當前的 BlendShape 權重 (範圍 0-100)
                         currentWeight = renderer.GetBlendShapeWeight(index);
+                        blendshapeFound = true;
+                        break;
                     }
                 }
 
-                // 將 KK 的權重 (0-100) 轉換為 VMD 的權重 (0.0-1.0)
-                float finalWeight = currentWeight / 100.0f;
-
-                // 只有當權重大於一個很小的值時才寫入影格，避免產生大量無用的0值數據
-                if (finalWeight > 0.001f)
+                // 如果找到了這個 BlendShape 且它有權重
+                if (blendshapeFound)
                 {
-                    frameList.Add(new VmdMorphFrame
+                    // 將 KK 的權重 (0-100) 轉換為 VMD 的權重 (0.0-1.0)
+                    float baseVmdWeight = currentWeight / 100.0f;
+
+                    // 遍歷所有目標 Morph，並分別計算權重
+                    foreach (var morphInfo in targetMorphs)
                     {
-                        MorphName = mapping.PmxMorph,
-                        FrameNumber = frameNumber,
-                        Weight = finalWeight
-                    });
+                        string pmxMorphName = morphInfo.Morph;
+                        float weightMultiplier = morphInfo.MappingWeight;
+                        float finalVmdWeight = baseVmdWeight * weightMultiplier;
+
+                        // 核心疊加邏輯
+                        if (tempFrames.TryGetValue(pmxMorphName, out var existingFrame))
+                        {
+                            existingFrame.Weight += finalVmdWeight;
+                        }
+                        else
+                        {
+                            tempFrames.Add(pmxMorphName, new VmdMorphFrame
+                            {
+                                MorphName = pmxMorphName,
+                                FrameNumber = frameNumber,
+                                Weight = finalVmdWeight
+                            });
+                        }
+                    }
                 }
+            }
+
+            // 疊加完成後，處理最終結果
+            foreach (var frame in tempFrames.Values)
+            {
+                frameList.Add(frame);
             }
 
             // 清理快取，為下一影格做準備

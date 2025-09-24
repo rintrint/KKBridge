@@ -1,305 +1,512 @@
 {
-    "MorphMappings": [
-        {
-            "PmxMorph": "まばたき",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_def_cl"
+    "说明00": "-----------------------------------------------------------------",
+    "说明01": "此档案用于定义 KK BlendShape 至 MMD Morph的映射规则。",
+    "说明02": "左侧的键是 BlendShape 名称，不可重複。",
+    "说明03": "右侧的值是一个阵列 []，用于定义映射到一个或多个 Morph。",
+    "说明04": "阵列中的每个 {} 都包含两个键：Morph 和 MappingWeight。",
+    "说明05": "Morph: MMD Morph 名称。",
+    "说明06": "MappingWeight: 映射权重。",
+    "说明07": "一个 BlendShape 可映射到阵列中的多个 Morph。",
+    "说明08": "多个 BlendShape 可映射到同一个 Morph，效果会叠加。",
+    "说明09": "可达成一对一映射，一对多映射，多对一映射，多对多映射。",
+    "说明10": "-----------------------------------------------------------------",
+    "BsToMorphMappings": {
+        "eye_face.f00_def_cl": [
+            {
+                "Morph": "まばたき",
+                "MappingWeight": 1.0
             }
-        },
-        {
-            "PmxMorph": "笑い",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_egao_op"
-            }
-        },
-        {
-            "PmxMorph": "ウィンク",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_winkl_op"
-            }
-        },
-        {
-            "PmxMorph": "ウィンク右",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_winkr_op"
-            }
-        },
-        {
-            "PmxMorph": "ウィンク２",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_gyul_op"
-            }
-        },
-        {
-            "PmxMorph": "ｳｨﾝｸ２右",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_gyur_op"
-            }
-        },
-        {
-            "PmxMorph": "なごみ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_setunai_op"
-            }
-        },
-        {
-            "PmxMorph": "はぅ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_tere_op"
-            }
-        },
-        {
-            "PmxMorph": "びっくり",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_sian_op"
-            }
-        },
-        {
-            "PmxMorph": "じと目",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_tumara_op"
-            }
-        },
-        {
-            "PmxMorph": "ｷﾘｯ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_sinken_op"
-            }
-        },
-        {
-            "PmxMorph": "あ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_a_l_op"
-            }
-        },
-        {
-            "PmxMorph": "い",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_i_l_op"
-            }
-        },
-        {
-            "PmxMorph": "う",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_u_l_op"
-            }
-        },
-        {
-            "PmxMorph": "え",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_e_l_op"
-            }
-        },
-        {
-            "PmxMorph": "お",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_o_l_op"
-            }
-        },
-        {
-            "PmxMorph": "あ２",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_a_s_op"
-            }
-        },
-        {
-            "PmxMorph": "ん",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_n_l_cl"
-            }
-        },
-        {
-            "PmxMorph": "▲",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_san_op"
-            }
-        },
-        {
-            "PmxMorph": "∧",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_ikari_op"
-            }
-        },
-        {
-            "PmxMorph": "□",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_odoro_s_op"
-            }
-        },
-        {
-            "PmxMorph": "ワ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_neko_op"
-            }
-        },
-        {
-            "PmxMorph": "ω",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_neko_cl"
-            }
-        },
-        {
-            "PmxMorph": "にやり",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_doya_op"
-            }
-        },
-        {
-            "PmxMorph": "にやり２",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_doya_cl"
-            }
-        },
-        {
-            "PmxMorph": "にっこり",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_niko_op"
-            }
-        },
-        {
-            "PmxMorph": "ぺろっ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_pero_cl"
-            }
-        },
-        {
-            "PmxMorph": "てへぺろ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_pero_cl"
-            }
-        },
-        {
-            "PmxMorph": "てへぺろ２",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_name_op"
-            }
-        },
-        {
-            "PmxMorph": "口角上げ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_uresi_cl"
-            }
-        },
-        {
-            "PmxMorph": "口角下げ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_sabisi_op"
-            }
-        },
-        {
-            "PmxMorph": "口横広げ",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_i_l_op"
-            }
-        },
-        {
-            "PmxMorph": "ハンサム",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "kuti_face.f00_sinken03_cl"
-            }
-        },
-        {
-            "PmxMorph": "涙",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_naki_op"
-            }
-        },
-        {
-            "PmxMorph": "がーん",
-            "KkBlendshape": {
-                "Mesh": "cf_O_face",
-                "Name": "eye_face.f00_rakutan_op"
-            }
-        },
-        {
-            "PmxMorph": "真面目",
-            "KkBlendshape": {
-                "Mesh": "cf_O_mayuge",
-                "Name": "mayuge.mayu00_sinken_op"
-            }
-        },
-        {
-            "PmxMorph": "困る",
-            "KkBlendshape": {
-                "Mesh": "cf_O_mayuge",
-                "Name": "mayuge.mayu00_koma_op"
-            }
-        },
-        {
-            "PmxMorph": "にこり",
-            "KkBlendshape": {
-                "Mesh": "cf_O_mayuge",
-                "Name": "mayuge.mayu00_def_op"
-            }
-        },
-        {
-            "PmxMorph": "怒り",
-            "KkBlendshape": {
-                "Mesh": "cf_O_mayuge",
-                "Name": "mayuge.mayu00_oko_op"
-            }
-        },
-        {
-            "PmxMorph": "上",
-            "KkBlendshape": {
-                "Mesh": "cf_O_mayuge",
-                "Name": "mayuge.mayu00_odoro_op"
-            }
-        },
-        {
-            "PmxMorph": "下",
-            "KkBlendshape": {
-                "Mesh": "cf_O_mayuge",
-                "Name": "mayuge.mayu00_rakutan_op"
-            }
-        },
-        {
-            "PmxMorph": "眉頭左",
-            "KkBlendshape": {
-                "Mesh": "cf_O_mayuge",
-                "Name": "mayuge.mayu00_gimoL_op"
-            }
-        },
-        {
-            "PmxMorph": "眉頭右",
-            "KkBlendshape": {
-                "Mesh": "cf_O_mayuge",
-                "Name": "mayuge.mayu00_gimoR_op"
-            }
-        }
-    ]
+        ],
+        "eye_face.f00_def_op": [],
+        "eye_face.f00_egao_cl": [],
+        "eye_face.f00_egao_op": [],
+        "eye_face.f00_bisyou_op": [],
+        "eye_face.f00_winkl_op": [],
+        "eye_face.f00_winkr_op": [],
+        "eye_face.f00_setunai_op": [],
+        "eye_face.f00_tere_op": [],
+        "eye_face.f00_ikari_op": [],
+        "eye_face.f00_sinken_op": [],
+        "eye_face.f00_tumara_op": [],
+        "eye_face.f00_kurusi_op": [],
+        "eye_face.f00_keno_op": [],
+        "eye_face.f00_sian_op": [],
+        "eye_face.f00_kanasi_op": [],
+        "eye_face.f00_naki_op": [],
+        "eye_face.f00_aseri_op": [],
+        "eye_face.f00_rakutan_op": [],
+        "eye_face.f00_komaru_op": [],
+        "eye_face.f00_doya_op": [],
+        "eye_face.f00_gag": [],
+        "eye_face.f00_gyul_op": [],
+        "eye_face.f00_gyur_op": [],
+        "eye_face.f00_gyu_cl": [],
+        "eye_face.f00_gyul02_op": [],
+        "eye_face.f00_gyur02_op": [],
+        "eye_face.f00_gyu02_cl": [],
+        "kuti_face.f00_def_cl": [],
+        "kuti_face.f00_def_op": [],
+        "kuti_face.f00_egao_op": [],
+        "kuti_face.f00_bisyou_op": [],
+        "kuti_face.f00_uresi_cl": [],
+        "kuti_face.f00_uresi_op": [],
+        "kuti_face.f00_uresi_s_op": [],
+        "kuti_face.f00_uresi_ss_op": [],
+        "kuti_face.f00_doki_cl": [],
+        "kuti_face.f00_doki_s_op": [],
+        "kuti_face.f00_doki_s_cl": [],
+        "kuti_face.f00_doki_ss_cl": [],
+        "kuti_face.f00_doki_ss_op": [],
+        "kuti_face.f00_ikari_cl": [],
+        "kuti_face.f00_ikari_op": [],
+        "kuti_face.f00_ikari02_op": [],
+        "kuti_face.f00_sinken02_op": [],
+        "kuti_face.f00_sinken03_cl": [],
+        "kuti_face.f00_sinken03_op": [],
+        "kuti_face.f00_keno_op": [],
+        "kuti_face.f00_sabisi_op": [],
+        "kuti_face.f00_aseri_op": [],
+        "kuti_face.f00_human_cl": [],
+        "kuti_face.f00_akire_op": [],
+        "kuti_face.f00_odoro_op": [],
+        "kuti_face.f00_odoro_s_op": [],
+        "kuti_face.f00_doya_cl": [],
+        "kuti_face.f00_doya_op": [],
+        "kuti_face.f00_pero_cl": [],
+        "kuti_face.f00_name_op": [],
+        "kuti_face.f00_kuwae_op": [],
+        "kuti_face.f00_kisu_op": [],
+        "kuti_face.f00_name02_op": [],
+        "kuti_face.f00_a_s_op": [],
+        "kuti_face.f00_a_l_op": [],
+        "kuti_face.f00_i_s_op": [],
+        "kuti_face.f00_i_l_op": [],
+        "kuti_face.f00_u_s_op": [],
+        "kuti_face.f00_u_l_op": [],
+        "kuti_face.f00_e_s_op": [],
+        "kuti_face.f00_e_l_op": [],
+        "kuti_face.f00_o_s_op": [],
+        "kuti_face.f00_o_l_op": [],
+        "kuti_face.f00_n_s_cl": [],
+        "kuti_face.f00_n_l_cl": [],
+        "kuti_face.f00_neko_cl": [],
+        "kuti_face.f00_neko_op": [],
+        "kuti_face.f00_san_op": [],
+        "kuti_face.f00_niko_cl": [],
+        "kuti_face.f00_niko_op": [],
+        "kuti_face.f00_mogu_op": [],
+        "kuti_face.f00_mogu_cl": [],
+        "kuti_face.f00_tabe_op": [],
+        "kuti_ha.ha00_def_cl": [],
+        "kuti_ha.ha00_def_op": [],
+        "kuti_ha.ha00_egao_op": [],
+        "kuti_ha.ha00_bisyou_op1": [],
+        "kuti_ha.ha00_uresi_cl": [],
+        "kuti_ha.ha00_uresi_op": [],
+        "kuti_ha.ha00_uresi_s_op": [],
+        "kuti_ha.ha00_uresi_ss_op": [],
+        "kuti_ha.ha00_doki_cl": [],
+        "kuti_ha.ha00_doki_s_op": [],
+        "kuti_ha.ha00_doki_s_cl": [],
+        "kuti_ha.ha00_doki_ss_cl": [],
+        "kuti_ha.ha00_doki_ss_op": [],
+        "kuti_ha.ha00_ikari_cl": [],
+        "kuti_ha.ha00_ikari_op": [],
+        "kuti_ha.ha00_ikari02_op": [],
+        "kuti_ha.ha00_sinken02_op": [],
+        "kuti_ha.ha00_sinken03_cl": [],
+        "kuti_ha.ha00_sinken03_op": [],
+        "kuti_ha.ha00_keno_op": [],
+        "kuti_ha.ha00_sabisi_op": [],
+        "kuti_ha.ha00_aseri_op": [],
+        "kuti_ha.ha00_human_cl": [],
+        "kuti_ha.ha00_akire_op": [],
+        "kuti_ha.ha00_odoro_op": [],
+        "kuti_ha.ha00_odoro_s_op": [],
+        "kuti_ha.ha00_doya_cl": [],
+        "kuti_ha.ha00_doya_op": [],
+        "kuti_ha.ha00_pero_cl": [],
+        "kuti_ha.ha00_name_op": [],
+        "kuti_ha.ha00_kuwae_op": [],
+        "kuti_ha.ha00_kisu_op": [],
+        "kuti_ha.ha00_name02_op": [],
+        "kuti_ha.ha00_a_s_op": [],
+        "kuti_ha.ha00_a_l_op": [],
+        "kuti_ha.ha00_i_s_cl": [],
+        "kuti_ha.ha00_i_l_cl": [],
+        "kuti_ha.ha00_e_s_op": [],
+        "kuti_ha.ha00_niko_op": [],
+        "kuti_yaeba.y00_def_cl": [],
+        "kuti_yaeba.y00_def_op": [],
+        "kuti_yaeba.y00_egao_op": [],
+        "kuti_yaeba.y00_bisyou_op1": [],
+        "kuti_yaeba.y00_uresi_cl": [],
+        "kuti_yaeba.y00_uresi_op": [],
+        "kuti_yaeba.y00_uresi_s_op": [],
+        "kuti_yaeba.y00_uresi_ss_op": [],
+        "kuti_yaeba.y00_doki_cl": [],
+        "kuti_yaeba.y00_doki_s_op": [],
+        "kuti_yaeba.y00_doki_s_cl": [],
+        "kuti_yaeba.y00_doki_ss_cl": [],
+        "kuti_yaeba.y00_doki_ss_op": [],
+        "kuti_yaeba.y00_ikari_cl": [],
+        "kuti_yaeba.y00_ikari_op": [],
+        "kuti_yaeba.y00_ikari02_op": [],
+        "kuti_yaeba.y00_sinken02_op": [],
+        "kuti_yaeba.y00_sinken03_cl": [],
+        "kuti_yaeba.y00_sinken03_op": [],
+        "kuti_yaeba.y00_keno_op": [],
+        "kuti_yaeba.y00_sabisi_op": [],
+        "kuti_yaeba.y00_aseri_op": [],
+        "kuti_yaeba.y00_human_cl": [],
+        "kuti_yaeba.y00_akire_op": [],
+        "kuti_yaeba.y00_odoro_op": [],
+        "kuti_yaeba.y00_odoro_s_op": [],
+        "kuti_yaeba.y00_doya_cl": [],
+        "kuti_yaeba.y00_doya_op": [],
+        "kuti_yaeba.y00_pero_cl": [],
+        "kuti_yaeba.y00_name_op": [],
+        "kuti_yaeba.y00_kuwae_op": [],
+        "kuti_yaeba.y00_kisu_op": [],
+        "kuti_yaeba.y00_name02_op": [],
+        "kuti_yaeba.y00_a_s_op": [],
+        "kuti_yaeba.y00_a_l_op": [],
+        "kuti_yaeba.y00_i_s_cl": [],
+        "kuti_yaeba.y00_i_l_cl": [],
+        "kuti_yaeba.y00_e_l_op": [],
+        "kuti_yaeba.y00_niko_op": [],
+        "eye_line_u.elu00_def_cl": [],
+        "eye_line_u.elu00_def_op": [],
+        "eye_line_u.elu00_egao_cl": [],
+        "eye_line_u.elu00_egao_op": [],
+        "eye_line_u.elu00_bisyou_op": [],
+        "eye_line_u.elu00_winkl_op": [],
+        "eye_line_u.elu00_winkr_op": [],
+        "eye_line_u.elu00_setunai_op": [],
+        "eye_line_u.elu00_tere_op": [],
+        "eye_line_u.elu00_ikari_op": [],
+        "eye_line_u.elu00_sinken_op": [],
+        "eye_line_u.elu00_tumara_op": [],
+        "eye_line_u.elu00_kurusi_op": [],
+        "eye_line_u.elu00_keno_op": [],
+        "eye_line_u.elu00_sian_op": [],
+        "eye_line_u.elu00_kanasi_op": [],
+        "eye_line_u.elu00_naki_op": [],
+        "eye_line_u.elu00_aseri_op": [],
+        "eye_line_u.elu00_rakutan_op": [],
+        "eye_line_u.elu00_komaru_op": [],
+        "eye_line_u.elu00_doya_op": [],
+        "eye_line_u.elu00_gyul_op": [],
+        "eye_line_u.elu00_gyur_op": [],
+        "eye_line_u.elu00_gyu_cl": [],
+        "eye_line_u.elu00_gyul02_op": [],
+        "eye_line_u.elu00_gyur02_op": [],
+        "eye_line_u.elu00_gyu02_cl": [],
+        "eye_line_l.ell00_def_cl": [],
+        "eye_line_l.ell00_def_op": [],
+        "eye_line_l.ell00_egao_cl": [],
+        "eye_line_l.ell00_egao_op": [],
+        "eye_line_l.ell00_bisyou_op": [],
+        "eye_line_l.ell00_winkl_op": [],
+        "eye_line_l.ell00_winkr_op": [],
+        "eye_line_l.ell00_setunai_op": [],
+        "eye_line_l.ell00_tere_op": [],
+        "eye_line_l.ell00_ikari_op": [],
+        "eye_line_l.ell00_sinken_op": [],
+        "eye_line_l.ell00_tumara_op": [],
+        "eye_line_l.ell00_kurusi_op": [],
+        "eye_line_l.ell00_keno_op": [],
+        "eye_line_l.ell00_sian_op": [],
+        "eye_line_l.ell00_kanasi_op": [],
+        "eye_line_l.ell00_naki_op": [],
+        "eye_line_l.ell00_aseri_op": [],
+        "eye_line_l.ell00_rakutan_op": [],
+        "eye_line_l.ell00_komaru_op": [],
+        "eye_line_l.ell00_doya_op": [],
+        "eye_line_l.ell00_gyul_op": [],
+        "eye_line_l.ell00_gyur_op": [],
+        "eye_line_l.ell00_gyu_cl": [],
+        "eye_line_l.ell00_gyul02_op": [],
+        "eye_line_l.ell00_gyur02_op": [],
+        "eye_line_l.ell00_gyu02_cl": [],
+        "mayuge.mayu00_def_cl": [],
+        "mayuge.mayu00_def_op": [],
+        "mayuge.mayu00_oko_cl": [],
+        "mayuge.mayu00_oko_op": [],
+        "mayuge.mayu00_koma_cl": [],
+        "mayuge.mayu00_koma_op": [],
+        "mayuge.mayu00_tmara_cl": [],
+        "mayuge.mayu00_tmara_op": [],
+        "mayuge.mayu00_gimoL_cl": [],
+        "mayuge.mayu00_gimoL_op": [],
+        "mayuge.mayu00_gimoR_cl": [],
+        "mayuge.mayu00_gimoR_op": [],
+        "mayuge.mayu00_sianL_cl": [],
+        "mayuge.mayu00_sianL_op": [],
+        "mayuge.mayu00_sianR_cl": [],
+        "mayuge.mayu00_sianR_op": [],
+        "mayuge.mayu00_oko2L_cl": [],
+        "mayuge.mayu00_oko2L_op": [],
+        "mayuge.mayu00_oko2R_cl": [],
+        "mayuge.mayu00_oko2R_op": [],
+        "mayuge.mayu00_sinken_cl": [],
+        "mayuge.mayu00_sinken_op": [],
+        "mayuge.mayu00_huan_cl": [],
+        "mayuge.mayu00_huan_op": [],
+        "mayuge.mayu00_odoro_cl": [],
+        "mayuge.mayu00_odoro_op": [],
+        "mayuge.mayu00_rakutan_cl": [],
+        "mayuge.mayu00_rakutan_op": [],
+        "mayuge.mayu00_doya_cl": [],
+        "mayuge.mayu00_doya_op": [],
+        "mayuge.mayu00_winkl_cl": [],
+        "mayuge.mayu00_winkl_op": [],
+        "mayuge.mayu00_winkr_cl": [],
+        "mayuge.mayu00_winkr_op": [],
+        "eye_siroL.sL00_def_cl": [],
+        "eye_siroL.sL00_def_op": [],
+        "eye_siroL.sL00_egao_cl": [],
+        "eye_siroL.sL00_egao_op": [],
+        "eye_siroL.sL00_bisyou_op": [],
+        "eye_siroL.sL00_winkl_op": [],
+        "eye_siroL.sL00_winkr_op": [],
+        "eye_siroL.sL00_setunai_op": [],
+        "eye_siroL.sL00_tere_op": [],
+        "eye_siroL.sL00_ikari_op": [],
+        "eye_siroL.sL00_sinken_op": [],
+        "eye_siroL.sL00_tumara_op": [],
+        "eye_siroL.sL00_kurusi_op": [],
+        "eye_siroL.sL00_keno_op": [],
+        "eye_siroL.sL00_sian_op": [],
+        "eye_siroL.sL00_kanasi_op": [],
+        "eye_siroL.sL00_naki_op": [],
+        "eye_siroL.sL00_aseri_op": [],
+        "eye_siroL.sL00_rakutan_op": [],
+        "eye_siroL.sL00_komaru_op": [],
+        "eye_siroL.sL00_doya_op": [],
+        "eye_siroL.sL00_gyul_op": [],
+        "eye_siroL.sL00_gyur_op": [],
+        "eye_siroL.sL00_gyu_cl": [],
+        "eye_siroL.sL00_gyul02_op": [],
+        "eye_siroL.sL00_gyur02_op": [],
+        "eye_siroL.sL00_gyu02_cl": [],
+        "eye_siroR.sR00_def_cl": [],
+        "eye_siroR.sR00_def_op": [],
+        "eye_siroR.sR00_egao_cl": [],
+        "eye_siroR.sR00_egao_op": [],
+        "eye_siroR.sR00_bisyou_op": [],
+        "eye_siroR.sR00_winkl_op": [],
+        "eye_siroR.sR00_winkr_op": [],
+        "eye_siroR.sR00_setunai_op": [],
+        "eye_siroR.sR00_tere_op": [],
+        "eye_siroR.sR00_ikari_op": [],
+        "eye_siroR.sR00_sinken_op": [],
+        "eye_siroR.sR00_tumara_op": [],
+        "eye_siroR.sR00_kurusi_op": [],
+        "eye_siroR.sR00_keno_op": [],
+        "eye_siroR.sR00_sian_op": [],
+        "eye_siroR.sR00_kanasi_op": [],
+        "eye_siroR.sR00_naki_op": [],
+        "eye_siroR.sR00_aseri_op": [],
+        "eye_siroR.sR00_rakutan_op": [],
+        "eye_siroR.sR00_komaru_op": [],
+        "eye_siroR.sR00_doya_op": [],
+        "eye_siroR.sR00_gyul_op": [],
+        "eye_siroR.sR00_gyur_op": [],
+        "eye_siroR.sR00_gyu_cl": [],
+        "eye_siroR.sR00_gyul02_op": [],
+        "eye_siroR.sR00_gyur02_op": [],
+        "eye_siroR.sR00_gyu02_cl": [],
+        "kuti_sita.t00_def_cl": [],
+        "kuti_sita.t00_def_op": [],
+        "kuti_sita.t00_egao_op": [],
+        "kuti_sita.t00_bisyou_op": [],
+        "kuti_sita.t00_uresi_cl": [],
+        "kuti_sita.t00_uresi_op": [],
+        "kuti_sita.t00_uresi_s_op": [],
+        "kuti_sita.t00_uresi_ss_op": [],
+        "kuti_sita.t00_doki_cl": [],
+        "kuti_sita.t00_doki_s_op": [],
+        "kuti_sita.t00_doki_s_cl": [],
+        "kuti_sita.t00_doki_ss_cl": [],
+        "kuti_sita.t00_doki_ss_op": [],
+        "kuti_sita.t00_ikari_cl": [],
+        "kuti_sita.t00_ikari_op": [],
+        "kuti_sita.t00_ikari02_op": [],
+        "kuti_sita.t00_sinken02_op": [],
+        "kuti_sita.t00_sinken03_cl": [],
+        "kuti_sita.t00_sinken03_op": [],
+        "kuti_sita.t00_keno_op": [],
+        "kuti_sita.t00_sabisi_op": [],
+        "kuti_sita.t00_aseri_op": [],
+        "kuti_sita.t00_human_cl": [],
+        "kuti_sita.t00_akire_op": [],
+        "kuti_sita.t00_odoro_op": [],
+        "kuti_sita.t00_odoro_s_op": [],
+        "kuti_sita.t00_doya_cl": [],
+        "kuti_sita.t00_doya_op": [],
+        "kuti_sita.t00_pero_cl": [],
+        "kuti_sita.t00_name_op": [],
+        "kuti_sita.t00_kuwae_op": [],
+        "kuti_sita.t00_kisu_op": [],
+        "kuti_sita.t00_name02_op": [],
+        "kuti_sita.t00_a_s_op": [],
+        "kuti_sita.t00_a_l_op": [],
+        "kuti_sita.t00_e_s_op": [],
+        "eye_naL.naL00_def_cl": [],
+        "eye_naL.naL00_def_op": [],
+        "eye_naL.naL00_egao_cl": [],
+        "eye_naL.naL00_egao_op": [],
+        "eye_naL.naL00_bisyou_op": [],
+        "eye_naL.naL00_winkl_op": [],
+        "eye_naL.naL00_winkr_op": [],
+        "eye_naL.naL00_setunai_op": [],
+        "eye_naL.naL00_tere_op": [],
+        "eye_naL.naL00_ikari_op": [],
+        "eye_naL.naL00_sinken_op": [],
+        "eye_naL.naL00_tumara_op": [],
+        "eye_naL.naL00_kurusi_op": [],
+        "eye_naL.naL00_keno_op": [],
+        "eye_naL.naL00_sian_op": [],
+        "eye_naL.naL00_kanasi_op": [],
+        "eye_naL.naL00_naki_op": [],
+        "eye_naL.naL00_aseri_op": [],
+        "eye_naL.naL00_rakutan_op": [],
+        "eye_naL.naL00_komaru_op": [],
+        "eye_naL.naL00_doya_op": [],
+        "eye_naL.naL00_gyul_op": [],
+        "eye_naL.naL00_gyur_op": [],
+        "eye_naL.naL00_gyu_cl": [],
+        "eye_naL.naL00_gyul02_op": [],
+        "eye_naL.naL00_gyur02_op": [],
+        "eye_naL.naL00_gyu02_cl": [],
+        "eye_naM.naM00_def_cl": [],
+        "eye_naM.naM00_def_op": [],
+        "eye_naM.naM00_egao_cl": [],
+        "eye_naM.naM00_egao_op": [],
+        "eye_naM.naM00_bisyou_op": [],
+        "eye_naM.naM00_winkl_op": [],
+        "eye_naM.naM00_winkr_op": [],
+        "eye_naM.naM00_setunai_op": [],
+        "eye_naM.naM00_tere_op": [],
+        "eye_naM.naM00_ikari_op": [],
+        "eye_naM.naM00_sinken_op": [],
+        "eye_naM.naM00_tumara_op": [],
+        "eye_naM.naM00_kurusi_op": [],
+        "eye_naM.naM00_keno_op": [],
+        "eye_naM.naM00_sian_op": [],
+        "eye_naM.naM00_kanasi_op": [],
+        "eye_naM.naM00_naki_op": [],
+        "eye_naM.naM00_aseri_op": [],
+        "eye_naM.naM00_rakutan_op": [],
+        "eye_naM.naM00_komaru_op": [],
+        "eye_naM.naM00_doya_op": [],
+        "eye_naM.naM00_gyul_op": [],
+        "eye_naM.naM00_gyur_op": [],
+        "eye_naM.naM00_gyu_cl": [],
+        "eye_naM.naM00_gyul02_op": [],
+        "eye_naM.naM00_gyur02_op": [],
+        "eye_naM.naM00_gyu02_cl": [],
+        "eye_naS.naS00_def_cl": [],
+        "eye_naS.naS00_def_op": [],
+        "eye_naS.naS00_egao_cl": [],
+        "eye_naS.naS00_egao_op": [],
+        "eye_naS.naS00_bisyou_op": [],
+        "eye_naS.naS00_winkl_op": [],
+        "eye_naS.naS00_winkr_op": [],
+        "eye_naS.naS00_setunai_op": [],
+        "eye_naS.naS00_tere_op": [],
+        "eye_naS.naS00_ikari_op": [],
+        "eye_naS.naS00_sinken_op": [],
+        "eye_naS.naS00_tumara_op": [],
+        "eye_naS.naS00_kurusi_op": [],
+        "eye_naS.naS00_keno_op": [],
+        "eye_naS.naS00_sian_op": [],
+        "eye_naS.naS00_kanasi_op": [],
+        "eye_naS.naS00_naki_op": [],
+        "eye_naS.naS00_aseri_op": [],
+        "eye_naS.naS00_rakutan_op": [],
+        "eye_naS.naS00_komaru_op": [],
+        "eye_naS.naS00_doya_op": [],
+        "eye_naS.naS00_gyul_op": [],
+        "eye_naS.naS00_gyur_op": [],
+        "eye_naS.naS00_gyu_cl": [],
+        "eye_naS.naS00_gyul02_op": [],
+        "eye_naS.naS00_gyur02_op": [],
+        "eye_naS.naS00_gyu02_cl": [],
+        "eye_nose.nl00_def_cl": [],
+        "eye_nose.nl00_def_op": [],
+        "eye_nose.nl00_egao_cl": [],
+        "eye_nose.nl00_egao_op": [],
+        "eye_nose.nl00_bisyou_op": [],
+        "eye_nose.nl00_winkl_op": [],
+        "eye_nose.nl00_winkr_op": [],
+        "eye_nose.nl00_setunai_op": [],
+        "eye_nose.nl00_tere_op": [],
+        "eye_nose.nl00_ikari_op": [],
+        "eye_nose.nl00_sinken_op": [],
+        "eye_nose.nl00_tumara_op": [],
+        "eye_nose.nl00_kurusi_op": [],
+        "eye_nose.nl00_keno_op": [],
+        "eye_nose.nl00_sian_op": [],
+        "eye_nose.nl00_kanasi_op": [],
+        "eye_nose.nl00_naki_op": [],
+        "eye_nose.nl00_aseri_op": [],
+        "eye_nose.nl00_rakutan_op": [],
+        "eye_nose.nl00_komaru_op": [],
+        "eye_nose.nl00_doya_op": [],
+        "eye_nose.nl00_gag": [],
+        "eye_nose.nl00_gyul_op": [],
+        "eye_nose.nl00_gyur_op": [],
+        "eye_nose.nl00_gyu_cl": [],
+        "kuti_nose.nl00_def_cl": [],
+        "kuti_nose.nl00_def_op": [],
+        "kuti_nose.nl00_egao_op": [],
+        "kuti_nose.nl00_bisyou_op": [],
+        "kuti_nose.nl00_uresi_cl": [],
+        "kuti_nose.nl00_uresi_op": [],
+        "kuti_nose.nl00_uresi_s_op": [],
+        "kuti_nose.nl00_uresi_ss_op": [],
+        "kuti_nose.nl00_doki_cl": [],
+        "kuti_nose.nl00_doki_s_op": [],
+        "kuti_nose.nl00_doki_s_cl": [],
+        "kuti_nose.nl00_doki_ss_cl": [],
+        "kuti_nose.nl00_doki_ss_op": [],
+        "kuti_nose.nl00_ikari_cl": [],
+        "kuti_nose.nl00_ikari_op": [],
+        "kuti_nose.nl00_ikari02_op": [],
+        "kuti_nose.nl00_sinken02_op": [],
+        "kuti_nose.nl00_sinken03_cl": [],
+        "kuti_nose.nl00_sinken03_op": [],
+        "kuti_nose.nl00_keno_op": [],
+        "kuti_nose.nl00_sabisi_op": [],
+        "kuti_nose.nl00_aseri_op": [],
+        "kuti_nose.nl00_human_cl": [],
+        "kuti_nose.nl00_akire_op": [],
+        "kuti_nose.nl00_odoro_op": [],
+        "kuti_nose.nl00_odoro_s_op": [],
+        "kuti_nose.nl00_doya_cl": [],
+        "kuti_nose.nl00_doya_op": [],
+        "kuti_nose.nl00_pero_cl": [],
+        "kuti_nose.nl00_name_op": [],
+        "kuti_nose.nl00_kuwae_op": [],
+        "kuti_nose.nl00_kisu_op": [],
+        "kuti_nose.nl00_name02_op": [],
+        "kuti_nose.nl00_a_s_op": [],
+        "kuti_nose.nl00_a_l_op": [],
+        "kuti_nose.nl00_i_s_op": [],
+        "kuti_nose.nl00_i_l_op": [],
+        "kuti_nose.nl00_u_s_op": [],
+        "kuti_nose.nl00_u_l_op": [],
+        "kuti_nose.nl00_e_s_op": [],
+        "kuti_nose.nl00_e_l_op": [],
+        "kuti_nose.nl00_o_s_op": [],
+        "kuti_nose.nl00_o_l_op": [],
+        "kuti_nose.nl00_n_s_op": [],
+        "kuti_nose.nl00_n_l_op": [],
+        "kuti_nose.nl00_san_op": [],
+        "kuti_nose.nl00_niko_cl": [],
+        "kuti_nose.nl00_niko_op": [],
+        "vagina.open": []
+    }
 }

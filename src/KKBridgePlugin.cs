@@ -248,7 +248,7 @@ namespace KKBridge
 
                     // 檢查四個角
                     Vector2 center = Vector2.zero;
-                    float distance = 0f;
+                    float distance = 0.0f;
 
                     // 左下角
                     if (x < cornerRadius && y < cornerRadius)
