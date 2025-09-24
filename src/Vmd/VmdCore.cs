@@ -654,14 +654,12 @@ namespace KKBridge.Vmd
     {
         public string Mesh;
         public string Name;
-        public float Weight;
     }
 
     public class PmxMorphMap
     {
         public string PmxMorph;
-        public bool Enabled;
-        public List<KkBlendshapeTarget> KkBlendshapes;
+        public KkBlendshapeTarget KkBlendshape;
     }
 
     public class MorphMappingConfig
@@ -780,7 +778,7 @@ namespace KKBridge.Vmd
 
                 if (jsonNode == null || !jsonNode.HasKey("MorphMappings") || !jsonNode["MorphMappings"].IsArray)
                 {
-                    _logger?.LogWarning("Failed to parse mappings from config.json. 'mappings' key not found or it's not an array.");
+                    _logger?.LogWarning("Failed to parse mappings from config.json. 'MorphMappings' key not found or it's not an array.");
                     _config = new MorphMappingConfig { MorphMappings = new List<PmxMorphMap>() };
                     return;
                 }
@@ -796,23 +794,17 @@ namespace KKBridge.Vmd
                     var pmxMap = new PmxMorphMap
                     {
                         PmxMorph = mappingNode["PmxMorph"],
-                        Enabled = mappingNode["Enabled"].AsBool,
-                        KkBlendshapes = new List<KkBlendshapeTarget>()
+                        KkBlendshape = null // Initialize as null
                     };
 
-                    if (mappingNode.HasKey("KkBlendshapes") && mappingNode["KkBlendshapes"].IsArray)
+                    if (mappingNode.HasKey("KkBlendshape") && mappingNode["KkBlendshape"].IsObject)
                     {
-                        foreach (JSONNode bsNode in mappingNode["KkBlendshapes"].AsArray)
+                        JSONNode bsNode = mappingNode["KkBlendshape"];
+                        pmxMap.KkBlendshape = new KkBlendshapeTarget
                         {
-                            if (!bsNode.IsObject) continue;
-
-                            pmxMap.KkBlendshapes.Add(new KkBlendshapeTarget
-                            {
-                                Mesh = bsNode["Mesh"],
-                                Name = bsNode["Name"],
-                                Weight = bsNode["Weight"].AsFloat
-                            });
-                        }
+                            Mesh = bsNode["Mesh"],
+                            Name = bsNode["Name"]
+                        };
                     }
                     newMappingsList.Add(pmxMap);
                 }
@@ -839,30 +831,24 @@ namespace KKBridge.Vmd
             // 為提高效率，先快取一次角色的 SkinnedMeshRenderer
             BuildRendererCache(ociChar.charInfo.transform);
 
-            foreach (var mapping in _config.MorphMappings.Where(m => m.Enabled))
+            foreach (var mapping in _config.MorphMappings)
             {
-                float maxWeight = 0f;
-                // 計算當前 PMX 表情的權重
-                // 策略：取所有關聯的 KK BlendShape 中，權重值的最大值
-                foreach (var kkBs in mapping.KkBlendshapes)
+                var kkBs = mapping.KkBlendshape;
+                if (kkBs == null) continue; // Skip if this mapping is incomplete
+
+                float currentWeight = 0f;
+                if (_rendererCache.TryGetValue(kkBs.Mesh, out var renderer))
                 {
-                    if (_rendererCache.TryGetValue(kkBs.Mesh, out var renderer))
+                    int index = renderer.sharedMesh.GetBlendShapeIndex(kkBs.Name);
+                    if (index != -1)
                     {
-                        int index = renderer.sharedMesh.GetBlendShapeIndex(kkBs.Name);
-                        if (index != -1)
-                        {
-                            // 讀取 KK 角色當前的 BlendShape 權重 (範圍 0-100)
-                            float currentWeight = renderer.GetBlendShapeWeight(index);
-                            if (currentWeight > maxWeight)
-                            {
-                                maxWeight = currentWeight;
-                            }
-                        }
+                        // 讀取 KK 角色當前的 BlendShape 權重 (範圍 0-100)
+                        currentWeight = renderer.GetBlendShapeWeight(index);
                     }
                 }
 
                 // 將 KK 的權重 (0-100) 轉換為 VMD 的權重 (0.0-1.0)
-                float finalWeight = maxWeight / 100.0f;
+                float finalWeight = currentWeight / 100.0f;
 
                 // 只有當權重大於一個很小的值時才寫入影格，避免產生大量無用的0值數據
                 if (finalWeight > 0.001f)
