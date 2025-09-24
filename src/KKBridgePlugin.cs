@@ -667,7 +667,53 @@ namespace KKBridge
 
                 Log.LogInfo($"Finished collecting frame data for all characters ({currentFrame} frames recorded).");
 
-                // --- 階段三：導出所有角色的 VMD 檔案 ---
+                // --- 階段三：對所有收集到的幀進行後處理優化 ---
+                Log.LogInfo("Post-processing keyframes to remove redundant keyframes...");
+                foreach (var ociChar in characters)
+                {
+                    string charName = ociChar.charInfo.chaFile.parameter.fullname;
+
+                    // --- 處理表情幀 (Morph Frames) ---
+                    var originalMorphFrames = allCharactersMorphFrames[ociChar];
+                    Log.LogInfo($"Character '{charName}': Processing {originalMorphFrames.Count} raw morph frames...");
+
+                    var processedMorphFrames = VmdExporter.PostProcessKeyframes(
+                        originalMorphFrames,
+                        frame => frame.MorphName,
+                        frame => frame.FrameNumber,
+                        (a, b) => Math.Abs(a.Weight - b.Weight) < 1E-06f,
+                        frame => Math.Abs(frame.Weight) < 1E-06f
+                    );
+                    allCharactersMorphFrames[ociChar] = processedMorphFrames;
+                    Log.LogInfo($"Character '{charName}': {processedMorphFrames.Count} optimized morph frames remaining.");
+
+
+                    // --- 處理骨骼幀 (Bone Frames) ---
+                    var originalBoneFrames = allCharactersBoneFrames[ociChar];
+                    Log.LogInfo($"Character '{charName}': Processing {originalBoneFrames.Count} raw bone frames...");
+
+                    var processedBoneFrames = VmdExporter.PostProcessKeyframes(
+                        originalBoneFrames,
+                        frame => frame.BoneName,
+                        frame => frame.FrameNumber,
+                        (a, b) =>
+                        {
+                            bool positionEqual = (a.Position - b.Position).sqrMagnitude < 1E-06f;
+                            bool rotationEqual = Mathf.Abs(Quaternion.Dot(a.Rotation, b.Rotation)) > 0.999999f;
+                            return positionEqual && rotationEqual;
+                        },
+                        frame =>
+                        {
+                            bool positionIsZero = frame.Position.sqrMagnitude < 1E-06f;
+                            bool rotationIsIdentity = Mathf.Abs(Quaternion.Dot(frame.Rotation, Quaternion.identity)) > 0.999999f;
+                            return positionIsZero && rotationIsIdentity;
+                        }
+                    );
+                    allCharactersBoneFrames[ociChar] = processedBoneFrames;
+                    Log.LogInfo($"Character '{charName}': {processedBoneFrames.Count} optimized bone frames remaining.");
+                }
+
+                // --- 階段四：導出所有角色的 VMD 檔案 ---
                 string outputDirectory = _outputDirectory.Value;
                 Directory.CreateDirectory(outputDirectory);
 
@@ -707,7 +753,7 @@ namespace KKBridge
             }
             finally
             {
-                // --- 階段四：無論成功或失敗，都執行清理工作 ---
+                // --- 階段五：無論成功或失敗，都執行清理工作 ---
                 if (originalCaptureFramerate.HasValue)
                 {
                     Time.captureFramerate = originalCaptureFramerate.Value; // 恢復影格率

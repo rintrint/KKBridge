@@ -240,6 +240,92 @@ namespace KKBridge.Vmd
 
     public static class VmdExporter
     {
+        /// <summary>
+        /// 通用的關鍵幀後處理與過濾輔助函數，移除多餘的關鍵幀以優化 VMD 檔案。
+        /// </summary>
+        /// <typeparam name="T">幀的類型 (例如 VmdBoneFrame 或 VmdMorphFrame)。</typeparam>
+        /// <param name="allFrames">所有已錄製的原始幀數據集合。</param>
+        /// <param name="getNameFunc">獲取名稱的函式：一個用於從幀物件中獲取其名稱 (骨骼名或表情名) 的函式。</param>
+        /// <param name="getFrameNumberFunc">獲取幀號的函式：一個用於從幀物件中獲取其幀號的函式。</param>
+        /// <param name="areEqualFunc">比較相等的函式：一個用於比較兩個幀的數據是否實質上相等的函式。</param>
+        /// <param name="isDefaultFunc">判斷是否為預設值的函式：一個用於判斷一個幀是否處於其預設/零狀態的函式。</param>
+        /// <returns>返回經過優化處理後的最終幀列表。</returns>
+        public static List<T> PostProcessKeyframes<T>(
+            ICollection<T> allFrames,
+            Func<T, string> getNameFunc,
+            Func<T, uint> getFrameNumberFunc,
+            Func<T, T, bool> areEqualFunc,
+            Func<T, bool> isDefaultFunc)
+        {
+            if (allFrames == null || allFrames.Count == 0)
+            {
+                return new List<T>();
+            }
+
+            // 1. 將所有幀按其名稱 (骨骼/表情) 進行分組
+            var groupedFrames = allFrames.GroupBy(getNameFunc);
+
+            var finalFrames = new List<T>();
+            finalFrames.Capacity = allFrames.Count;
+
+            // 2. 對每一組 (每一個骨骼或表情) 獨立進行過濾
+            foreach (var group in groupedFrames)
+            {
+                // 必須先按幀號排序，後續的邏輯才能正確運作
+                var frames = group.OrderBy(f => getFrameNumberFunc(f)).ToList();
+                if (frames.Count == 0)
+                {
+                    continue;
+                }
+
+                // --- 過濾規則 1: 移除連續且相同的的中間幀 ---
+                var stage1Frames = new List<T>();
+                if (frames.Count > 2)
+                {
+                    stage1Frames.Add(frames.First()); // 總是保留第一幀
+                    for (int i = 1; i < frames.Count - 1; ++i)
+                    {
+                        // 如果一個幀和它前後的幀都相等，它就是可移除的中間幀
+                        if (!(areEqualFunc(frames[i - 1], frames[i]) && areEqualFunc(frames[i], frames[i + 1])))
+                        {
+                            stage1Frames.Add(frames[i]);
+                        }
+                    }
+                    stage1Frames.Add(frames.Last()); // 總是保留最後一幀
+                }
+                else
+                {
+                    stage1Frames.AddRange(frames); // 幀數小於等於2，沒有中間幀可移除
+                }
+
+                // --- 過濾規則 2: 如果只剩下頭尾兩幀且它們相等，則只保留第一幀 ---
+                var stage2Frames = new List<T>();
+                if (stage1Frames.Count == 2 && areEqualFunc(stage1Frames[0], stage1Frames[1]))
+                {
+                    stage2Frames.Add(stage1Frames[0]);
+                }
+                else
+                {
+                    stage2Frames.AddRange(stage1Frames);
+                }
+
+                // --- 過濾規則 3: 如果最終只剩下一幀，且該幀為預設值，則完全移除這個骨骼/表情的所有幀 ---
+                if (stage2Frames.Count == 1 && isDefaultFunc(stage2Frames[0]))
+                {
+                    // 不做任何事，即刪除這個骨骼/表情的所有關鍵幀
+                }
+                else
+                {
+                    finalFrames.AddRange(stage2Frames);
+                }
+            }
+
+            // 3. 最終結果按幀號排序，確保 VMD 檔案的順序正確
+            finalFrames.Sort((a, b) => getFrameNumberFunc(a).CompareTo(getFrameNumberFunc(b)));
+
+            return finalFrames;
+        }
+
         public static void Export(
             ICollection<VmdBoneFrame> boneFrames,
             ICollection<VmdMorphFrame> morphFrames,
