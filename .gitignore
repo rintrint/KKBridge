@@ -1,4 +1,5 @@
 /src/.vs
 /src/bin
 /src/obj
+/src/packages
 /src/KKBridge.csproj.user

@@ -11,6 +11,7 @@ Build `src/KKBridge.sln` with Visual Studio.
 * 0Harmony
 * Timeline
 * DLLs from Koikatsu
+* SimpleJson
 
 ## License
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

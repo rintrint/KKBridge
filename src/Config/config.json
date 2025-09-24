@@ -1,0 +1,697 @@
+{
+    "MorphMappings": [
+        {
+            "PmxMorph": "まばたき",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_def_cl",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_eyeline",
+                    "Name": "eye_line_u.elu00_def_cl",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_eyeline_low",
+                    "Name": "eye_line_l.ell00_def_cl",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "笑い",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_egao_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_eyeline",
+                    "Name": "eye_line_u.elu00_egao_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_eyeline_low",
+                    "Name": "eye_line_l.ell00_egao_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ウィンク",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_winkl_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_eyeline",
+                    "Name": "eye_line_u.elu00_winkl_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ウィンク右",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_winkr_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_eyeline",
+                    "Name": "eye_line_u.elu00_winkr_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ウィンク２",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_gyul_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ｳｨﾝｸ２右",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_gyur_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "なごみ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_setunai_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "はぅ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_tere_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "びっくり",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_sian_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_odoro_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_tooth",
+                    "Name": "kuti_ha.ha00_odoro_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "じと目",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_tumara_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ｷﾘｯ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_sinken_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "はちゅ目",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "はちゅ目縦潰れ",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "はちゅ目横潰れ",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "あ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_a_l_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_tooth",
+                    "Name": "kuti_ha.ha00_a_l_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "い",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_i_l_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "う",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_u_l_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "え",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_e_l_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_tooth",
+                    "Name": "kuti_ha.ha00_e_s_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "お",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_o_l_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "あ２",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_a_s_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ん",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_n_l_cl",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "▲",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_san_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "∧",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_ikari_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_tooth",
+                    "Name": "kuti_ha.ha00_ikari_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "□",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_odoro_s_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ワ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_neko_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ω",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_neko_cl",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ω□",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "にやり",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_doya_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_tooth",
+                    "Name": "kuti_ha.ha00_doya_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "にやり２",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_doya_cl",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_tooth",
+                    "Name": "kuti_ha.ha00_doya_cl",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "にっこり",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_niko_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_tooth",
+                    "Name": "kuti_ha.ha00_niko_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "ぺろっ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_pero_cl",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "o_tang",
+                    "Name": "kuti_sita.t00_pero_cl",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "てへぺろ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_egao_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_pero_cl",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "o_tang",
+                    "Name": "kuti_sita.t00_pero_cl",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "てへぺろ２",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_egao_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_Name_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "o_tang",
+                    "Name": "kuti_sita.t00_Name_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "口角上げ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_uresi_cl",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "口角下げ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_sabisi_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "口横広げ",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_i_l_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "歯無し上",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "歯無し下",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "ハンサム",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_sinken_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "kuti_face.f00_sinken03_cl",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "真面目",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_mayuge",
+                    "Name": "mayuge.mayu00_sinken_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "困る",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_mayuge",
+                    "Name": "mayuge.mayu00_koma_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "にこり",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_mayuge",
+                    "Name": "mayuge.mayu00_def_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "怒り",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_mayuge",
+                    "Name": "mayuge.mayu00_oko_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "上",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_mayuge",
+                    "Name": "mayuge.mayu00_odoro_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "下",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_mayuge",
+                    "Name": "mayuge.mayu00_rakutan_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "前",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "眉頭左",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_mayuge",
+                    "Name": "mayuge.mayu00_gimoL_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "眉頭右",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_mayuge",
+                    "Name": "mayuge.mayu00_gimoR_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "涙",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_namida_L",
+                    "Name": "eye_naL.naL00_naki_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_namida_M",
+                    "Name": "eye_naM.naM00_naki_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_namida_S",
+                    "Name": "eye_naS.naS00_naki_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "輪郭",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "星目",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "はぁと",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "瞳小",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "瞳縦潰れ",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "光下",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "恐ろしい子！",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "照れ",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "がーん",
+            "Enabled": true,
+            "KkBlendshapes": [
+                {
+                    "Mesh": "cf_O_face",
+                    "Name": "eye_face.f00_rakutan_op",
+                    "Weight": 100.0
+                },
+                {
+                    "Mesh": "cf_O_mayuge",
+                    "Name": "mayuge.mayu00_rakutan_op",
+                    "Weight": 100.0
+                }
+            ]
+        },
+        {
+            "PmxMorph": "みっぱい",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "メガネ",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "LightUp",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "LightOff",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "LightBlink",
+            "Enabled": false,
+            "KkBlendshapes": []
+        },
+        {
+            "PmxMorph": "LightBS",
+            "Enabled": false,
+            "KkBlendshapes": []
+        }
+    ]
+}

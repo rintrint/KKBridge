@@ -574,12 +574,17 @@ namespace KKBridge
                 Time.captureFramerate = fps;
 
                 // --- 階段二：初始化資料結構並開始錄製 ---
-                var allCharactersFrames = new Dictionary<OCIChar, List<VmdMotionFrame>>();
+                var boneProcessor = new VmdBoneProcessor(Log);
+                var morphProcessor = new VmdMorphProcessor(Log);
+
+                var allCharactersBoneFrames = new Dictionary<OCIChar, List<VmdBoneFrame>>();
+                var allCharactersMorphFrames = new Dictionary<OCIChar, List<VmdMorphFrame>>();
                 var characterBoneCaches = new Dictionary<OCIChar, Dictionary<string, Transform>>();
                 foreach (var ociChar in characters)
                 {
-                    // 為每個角色創建一個 VMD 影格列表
-                    allCharactersFrames[ociChar] = new List<VmdMotionFrame>();
+                    // 為每個角色創建 VMD 影格列表
+                    allCharactersBoneFrames[ociChar] = new List<VmdBoneFrame>();
+                    allCharactersMorphFrames[ociChar] = new List<VmdMorphFrame>();
 
                     // 為每個角色預先建立並儲存骨骼快取
                     var boneCacheForChar = new Dictionary<string, Transform>();
@@ -608,8 +613,6 @@ namespace KKBridge
                 int currentFrame = 0;
                 float previousTime = -1f;
 
-                var boneProcessor = new VmdBoneProcessor(Log);
-
                 while (_isExporting) // 增加一個開關，以便可以從外部停止
                 {
                     // 1. 等待下一影格
@@ -635,25 +638,27 @@ namespace KKBridge
                     // 4. 在這一影格內，遍歷所有角色並收集數據
                     foreach (var ociChar in characters)
                     {
-                        List<VmdMotionFrame> singleFrameBoneData;
                         Transform instanceRootTf = ociChar.charInfo.transform;
 
-                        if (characterBoneCaches.TryGetValue(ociChar, out var BoneCache) && instanceRootTf != null)
+                        if (!characterBoneCaches.TryGetValue(ociChar, out var BoneCache) || instanceRootTf == null)
                         {
-                            // 呼叫處理器來獲取當前影格的數據
-                            singleFrameBoneData = boneProcessor.ProcessCharacter(instanceRootTf, BoneCache);
-                        }
-                        else
-                        {
-                            singleFrameBoneData = new List<VmdMotionFrame>(); // Fallback to empty list
+                            // 快速失敗：記錄詳細錯誤並跳過這個角色
+                            string charName = ociChar.charInfo.chaFile.parameter.fullname;
+                            Log.LogError($"[KKBridge] Failed to process character '{charName}'. Bone cache or root transform not found. Skipping this character.");
+                            continue; // 跳到下一個角色
                         }
 
+                        // 呼叫處理器來獲取當前影格的數據
+                        List<VmdBoneFrame> singleFrameBoneData = boneProcessor.ProcessCharacter(instanceRootTf, BoneCache);
                         foreach (var boneFrame in singleFrameBoneData)
                         {
                             boneFrame.FrameNumber = (uint)currentFrame;
                         }
                         // 將當前影格的數據添加到對應角色的列表中
-                        allCharactersFrames[ociChar].AddRange(singleFrameBoneData);
+                        allCharactersBoneFrames[ociChar].AddRange(singleFrameBoneData);
+
+                        List<VmdMorphFrame> singleFrameMorphData = morphProcessor.ProcessCharacter(ociChar, (uint)currentFrame);
+                        allCharactersMorphFrames[ociChar].AddRange(singleFrameMorphData);
                     }
 
                     previousTime = currentTime;
@@ -671,11 +676,12 @@ namespace KKBridge
                 {
                     ChaControl chaCtrl = ociChar.charInfo;
                     string charName = chaCtrl.chaFile.parameter.fullname;
-                    List<VmdMotionFrame> framesForThisChar = allCharactersFrames[ociChar];
+                    List<VmdBoneFrame> boneFramesForThisChar = allCharactersBoneFrames[ociChar];
+                    List<VmdMorphFrame> morphFramesForThisChar = allCharactersMorphFrames[ociChar];
 
                     Log.LogInfo($"--- Exporting VMD for character {charIndex}: {charName} ---");
 
-                    if (framesForThisChar.Count == 0)
+                    if (boneFramesForThisChar.Count == 0)
                     {
                         Log.LogWarning($"No frames were recorded for character {charName}. Skipping VMD export for this character.");
                         charIndex++;
@@ -689,7 +695,7 @@ namespace KKBridge
 
                     try
                     {
-                        VmdExporter.Export(framesForThisChar, ikFrames, "KoikatsuModel", vmdFilePath);
+                        VmdExporter.Export(boneFramesForThisChar, morphFramesForThisChar, ikFrames, "KoikatsuModel", vmdFilePath);
                         Log.LogInfo($"Successfully exported VMD animation to: {vmdFilePath}");
                     }
                     catch (Exception e)
@@ -756,7 +762,7 @@ namespace KKBridge
             }
             catch (Exception ex)
             {
-                Log.LogError($"Error loading image from Assembly: {ex.Message}");
+                Log.LogError($"Error loading image from Assembly: {ex.ToString()}");
                 return null;
             }
         }

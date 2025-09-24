@@ -1,9 +1,12 @@
 using BepInEx.Logging;
 using KKBridge.Extensions;
+using SimpleJSON;
+using Studio;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using UnityEngine;
 
@@ -154,7 +157,7 @@ namespace KKBridge.Vmd
         }
     }
 
-    public class VmdMotionFrame
+    public class VmdBoneFrame
     {
         public string BoneName { get; set; }
         public uint FrameNumber { get; set; }
@@ -167,7 +170,7 @@ namespace KKBridge.Vmd
             20, 107, 107, 107, 107,  20,  20,  20, 20, 107, 107, 107, 107,   0,   0,   0,
         };
 
-        public VmdMotionFrame(string boneName)
+        public VmdBoneFrame(string boneName)
         {
             BoneName = boneName;
             FrameNumber = 0;
@@ -237,11 +240,16 @@ namespace KKBridge.Vmd
 
     public static class VmdExporter
     {
-        public static void Export(ICollection<VmdMotionFrame> frames, ICollection<VmdIkFrame> ikFrames, string modelName, string filePath)
+        public static void Export(
+            ICollection<VmdBoneFrame> boneFrames,
+            ICollection<VmdMorphFrame> morphFrames,
+            ICollection<VmdIkFrame> ikFrames,
+            string modelName,
+            string filePath)
         {
-            if (frames == null)
+            if (boneFrames == null)
             {
-                throw new ArgumentNullException(nameof(frames));
+                throw new ArgumentNullException(nameof(boneFrames));
             }
             if (ikFrames == null)
             {
@@ -263,8 +271,8 @@ namespace KKBridge.Vmd
                 writer.Write(modelNameBytes);
 
                 // 寫入骨骼框架
-                writer.Write(frames.Count);
-                foreach (var frame in frames.OrderBy(f => f.FrameNumber).ThenBy(f => f.BoneName))
+                writer.Write(boneFrames.Count);
+                foreach (var frame in boneFrames.OrderBy(f => f.FrameNumber).ThenBy(f => f.BoneName))
                 {
                     byte[] nameBytes = new byte[15];
                     tempBytes = shiftJisEncoding.GetBytes(frame.BoneName);
@@ -278,13 +286,22 @@ namespace KKBridge.Vmd
                     writer.Write(frame.Rotation.y);
                     writer.Write(frame.Rotation.z);
                     writer.Write(frame.Rotation.w);
-                    writer.Write(VmdMotionFrame.DefaultInterpolation);
+                    writer.Write(VmdBoneFrame.DefaultInterpolation);
                 }
 
-                // 寫入表情框架 (空)
-                writer.Write(0);
+                // 寫入表情框架
+                writer.Write(morphFrames.Count);
+                foreach (var frame in morphFrames.OrderBy(f => f.FrameNumber).ThenBy(f => f.MorphName))
+                {
+                    byte[] nameBytes = new byte[15];
+                    tempBytes = shiftJisEncoding.GetBytes(frame.MorphName);
+                    Buffer.BlockCopy(tempBytes, 0, nameBytes, 0, Math.Min(tempBytes.Length, 15));
+                    writer.Write(nameBytes);
+                    writer.Write(frame.FrameNumber);
+                    writer.Write(frame.Weight);
+                }
 
-                // 寫入攝影機框架 (空)
+                // 寫入相機框架 (空)
                 writer.Write(0);
 
                 // 寫入燈光框架 (空)
@@ -330,9 +347,9 @@ namespace KKBridge.Vmd
         /// <summary>
         /// 為單一角色收集所有骨骼數據的啟動函數。
         /// </summary>
-        public List<VmdMotionFrame> ProcessCharacter(Transform instanceRootTf, Dictionary<string, Transform> boneCache)
+        public List<VmdBoneFrame> ProcessCharacter(Transform instanceRootTf, Dictionary<string, Transform> boneCache)
         {
-            var frameList = new List<VmdMotionFrame>();
+            var frameList = new List<VmdBoneFrame>();
             if (instanceRootTf == null)
             {
                 _logger?.LogError("Character root transform is null. Skipping.");
@@ -346,14 +363,14 @@ namespace KKBridge.Vmd
         /// 遞迴收集骨骼數據。
         /// 採用統一計算邏輯，數據和規則由 BoneMapper 提供。
         /// </summary>
-        private void ProcessBoneRecursive(Transform bone, Dictionary<string, Transform> boneCache, List<VmdMotionFrame> frameList)
+        private void ProcessBoneRecursive(Transform bone, Dictionary<string, Transform> boneCache, List<VmdBoneFrame> frameList)
         {
             if (bone == null) return;
 
             // 使用智能查找獲取當前骨骼的映射規則
             if (BoneMapper.TryGetMatchEntry(bone, out BoneMapEntry currentEntry))
             {
-                var frame = new VmdMotionFrame(currentEntry.MmdName);
+                var frame = new VmdBoneFrame(currentEntry.MmdName);
                 Quaternion finalRot;
 
                 // --- 統一旋轉計算邏輯 ---
@@ -632,4 +649,250 @@ namespace KKBridge.Vmd
         }
     }
     #endregion
+
+    public class KkBlendshapeTarget
+    {
+        public string Mesh;
+        public string Name;
+        public float Weight;
+    }
+
+    public class PmxMorphMap
+    {
+        public string PmxMorph;
+        public bool Enabled;
+        public List<KkBlendshapeTarget> KkBlendshapes;
+    }
+
+    public class MorphMappingConfig
+    {
+        public List<PmxMorphMap> MorphMappings;
+    }
+
+    public class VmdMorphFrame
+    {
+        public string MorphName { get; set; }
+        public uint FrameNumber { get; set; }
+        public float Weight { get; set; }
+    }
+
+    public class VmdMorphProcessor
+    {
+        private readonly ManualLogSource _logger;
+        private MorphMappingConfig _config;
+        private Dictionary<string, SkinnedMeshRenderer> _rendererCache = new Dictionary<string, SkinnedMeshRenderer>();
+        private string _settingsFilePath;
+
+        public VmdMorphProcessor(ManualLogSource logger = null)
+        {
+            _logger = logger;
+            InitializeAndLoad();
+        }
+
+        /// <summary>
+        /// 初始化設定檔路徑並載入設定
+        /// </summary>
+        private void InitializeAndLoad()
+        {
+            try
+            {
+                // 決定設定檔在使用者端的最終路徑
+                // 通常是與插件 DLL 相同的目錄
+                string pluginDirectory = Path.Combine(BepInEx.Paths.PluginPath, "KKBridge");
+                _settingsFilePath = Path.Combine(pluginDirectory, "config.json");
+
+                // 確保設定檔存在 (如果不存在，就從內嵌資源創建一個)
+                EnsureSettingsFileExists();
+
+                // 載入設定
+                LoadMappings();
+            }
+            catch (System.Exception ex)
+            {
+                _logger?.LogError($"An error occurred during settings initialization: {ex.ToString()}");
+            }
+        }
+
+        /// <summary>
+        /// 確保設定檔存在於目標路徑。如果不存在，則從 DLL 的內嵌資源中創建它。
+        /// </summary>
+        private void EnsureSettingsFileExists()
+        {
+            if (File.Exists(_settingsFilePath))
+            {
+                // 檔案已存在，無需任何操作
+                return;
+            }
+
+            _logger?.LogInfo($"Configuration file not found. Creating a default one at: {_settingsFilePath}");
+
+            try
+            {
+                var assembly = Assembly.GetExecutingAssembly();
+                string resourceName = "KKBridge.Config.config.json";
+
+                using (var stream = assembly.GetManifestResourceStream(resourceName))
+                {
+                    if (stream == null)
+                    {
+                        _logger?.LogError($"Could not find the embedded resource: '{resourceName}'. Make sure the file's Build Action is set to 'Embedded Resource' and the name is correct.");
+                        return;
+                    }
+
+                    using (var reader = new StreamReader(stream))
+                    {
+                        string defaultSettings = reader.ReadToEnd();
+                        File.WriteAllText(_settingsFilePath, defaultSettings);
+                        _logger?.LogInfo("Default configuration file created successfully.");
+                    }
+                }
+            }
+            catch (System.Exception ex)
+            {
+                _logger?.LogError($"Failed to create default configuration file: {ex.ToString()}");
+            }
+        }
+
+        /// <summary>
+        /// 從外部設定檔載入並解析映射。
+        /// </summary>
+        private void LoadMappings()
+        {
+            if (!File.Exists(_settingsFilePath))
+            {
+                _logger?.LogError($"Load failed: Settings file '{_settingsFilePath}' does not exist.");
+                _config = new MorphMappingConfig { MorphMappings = new List<PmxMorphMap>() };
+                return;
+            }
+
+            try
+            {
+                string jsonContent = File.ReadAllText(_settingsFilePath);
+                if (string.IsNullOrEmpty(jsonContent))
+                {
+                    _logger?.LogError("Load failed: config.json is empty.");
+                    _config = new MorphMappingConfig { MorphMappings = new List<PmxMorphMap>() };
+                    return;
+                }
+
+                // --- 使用 SimpleJSON 進行解析 ---
+                var jsonNode = JSON.Parse(jsonContent);
+
+                if (jsonNode == null || !jsonNode.HasKey("MorphMappings") || !jsonNode["MorphMappings"].IsArray)
+                {
+                    _logger?.LogWarning("Failed to parse mappings from config.json. 'mappings' key not found or it's not an array.");
+                    _config = new MorphMappingConfig { MorphMappings = new List<PmxMorphMap>() };
+                    return;
+                }
+
+                // --- 手動將 JSON 節點轉換為 C# 物件 ---
+                var newMappingsList = new List<PmxMorphMap>();
+                JSONArray mappingsArray = jsonNode["MorphMappings"].AsArray;
+
+                foreach (JSONNode mappingNode in mappingsArray)
+                {
+                    if (!mappingNode.IsObject) continue; // 跳過無效的條目
+
+                    var pmxMap = new PmxMorphMap
+                    {
+                        PmxMorph = mappingNode["PmxMorph"],
+                        Enabled = mappingNode["Enabled"].AsBool,
+                        KkBlendshapes = new List<KkBlendshapeTarget>()
+                    };
+
+                    if (mappingNode.HasKey("KkBlendshapes") && mappingNode["KkBlendshapes"].IsArray)
+                    {
+                        foreach (JSONNode bsNode in mappingNode["KkBlendshapes"].AsArray)
+                        {
+                            if (!bsNode.IsObject) continue;
+
+                            pmxMap.KkBlendshapes.Add(new KkBlendshapeTarget
+                            {
+                                Mesh = bsNode["Mesh"],
+                                Name = bsNode["Name"],
+                                Weight = bsNode["Weight"].AsFloat
+                            });
+                        }
+                    }
+                    newMappingsList.Add(pmxMap);
+                }
+
+                _config = new MorphMappingConfig { MorphMappings = newMappingsList };
+
+                _logger?.LogInfo($"Successfully loaded {_config.MorphMappings.Count} morph mappings.");
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogError($"An unexpected error occurred while parsing config.json: {ex.ToString()}");
+                _config = null;
+            }
+        }
+
+        /// <summary>
+        /// 為單一角色在當前影格生成所有 VMD 表情數據
+        /// </summary>
+        public List<VmdMorphFrame> ProcessCharacter(OCIChar ociChar, uint frameNumber)
+        {
+            var frameList = new List<VmdMorphFrame>();
+            if (_config == null || ociChar == null) return frameList;
+
+            // 為提高效率，先快取一次角色的 SkinnedMeshRenderer
+            BuildRendererCache(ociChar.charInfo.transform);
+
+            foreach (var mapping in _config.MorphMappings.Where(m => m.Enabled))
+            {
+                float maxWeight = 0f;
+                // 計算當前 PMX 表情的權重
+                // 策略：取所有關聯的 KK BlendShape 中，權重值的最大值
+                foreach (var kkBs in mapping.KkBlendshapes)
+                {
+                    if (_rendererCache.TryGetValue(kkBs.Mesh, out var renderer))
+                    {
+                        int index = renderer.sharedMesh.GetBlendShapeIndex(kkBs.Name);
+                        if (index != -1)
+                        {
+                            // 讀取 KK 角色當前的 BlendShape 權重 (範圍 0-100)
+                            float currentWeight = renderer.GetBlendShapeWeight(index);
+                            if (currentWeight > maxWeight)
+                            {
+                                maxWeight = currentWeight;
+                            }
+                        }
+                    }
+                }
+
+                // 將 KK 的權重 (0-100) 轉換為 VMD 的權重 (0.0-1.0)
+                float finalWeight = maxWeight / 100.0f;
+
+                // 只有當權重大於一個很小的值時才寫入影格，避免產生大量無用的0值數據
+                if (finalWeight > 0.001f)
+                {
+                    frameList.Add(new VmdMorphFrame
+                    {
+                        MorphName = mapping.PmxMorph,
+                        FrameNumber = frameNumber,
+                        Weight = finalWeight
+                    });
+                }
+            }
+
+            // 清理快取，為下一影格做準備
+            _rendererCache.Clear();
+            return frameList;
+        }
+
+        private void BuildRendererCache(Transform root)
+        {
+            _rendererCache.Clear();
+            var renderers = root.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            foreach (var renderer in renderers)
+            {
+                // 使用 cf_O_face 這種物件名稱作為 key
+                if (!_rendererCache.ContainsKey(renderer.name))
+                {
+                    _rendererCache.Add(renderer.name, renderer);
+                }
+            }
+        }
+    }
 }
