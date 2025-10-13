@@ -167,7 +167,7 @@ namespace KKBridge
         /// </summary>
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name == "Studio")
+            if (scene.name == "Studio" || scene.name == "MHM_ILLUSION_HS_002")
             {
                 // 在正確的時機初始化按鈕
                 InitializeButton();
@@ -181,7 +181,8 @@ namespace KKBridge
         {
             // 當插件啟動時（包括熱重載），檢查當前是否就在Studio場景
             // 如果是，就立即嘗試初始化按鈕
-            if (SceneManager.GetActiveScene().name == "MHM_ILLUSION_HS_002")
+            string sceneName = SceneManager.GetActiveScene().name;
+            if (sceneName == "Studio" || sceneName == "MHM_ILLUSION_HS_002")
             {
                 InitializeButton();
             }
