@@ -26,14 +26,19 @@ jobs:
       - name: Prepare package for upload
         shell: bash
         run: |
-          mkdir -p artifact
           RELEASE_DIR="src/bin/${{ env.BUILD_CONFIGURATION }}"
+          PACKAGE_DIR="BepInEx/plugins/KKBridge"
+          mkdir -p "$PACKAGE_DIR/out"
+          cp "src/Config/config.json" "$PACKAGE_DIR/"
+          cp "$RELEASE_DIR/KKBridge.dll" "$PACKAGE_DIR/"
 
-          echo "Copying all files from $RELEASE_DIR to artifact/"
-          cp "$RELEASE_DIR"/* artifact/
+          echo "Final structure:"
+          find "$PACKAGE_DIR" -print
+
+          7z a -t7z KKBridge.7z BepInEx/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: KKBridge_Build_${{ github.run_number }}
-          path: artifact/
+          path: KKBridge.7z
