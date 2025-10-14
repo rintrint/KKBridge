@@ -1,6 +1,13 @@
 name: Build KKBridge Plugin
 
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches:
+      - "**"
+    tags-ignore:
+      - "**"
+  pull_request:
+  workflow_dispatch:
 
 env:
   SOLUTION_FILE_PATH: src/KKBridge.sln
