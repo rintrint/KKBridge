@@ -29,6 +29,7 @@ jobs:
           RELEASE_DIR="src/bin/${{ env.BUILD_CONFIGURATION }}"
           PACKAGE_DIR="BepInEx/plugins/KKBridge"
           mkdir -p "$PACKAGE_DIR/out"
+          cp -r src/DLLs "$PACKAGE_DIR/"
           cp "src/Config/config.json" "$PACKAGE_DIR/"
           cp "$RELEASE_DIR/KKBridge.dll" "$PACKAGE_DIR/"
 

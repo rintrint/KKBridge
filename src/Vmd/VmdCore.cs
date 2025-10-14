@@ -342,7 +342,6 @@ namespace KKBridge.Vmd
                 throw new ArgumentNullException(nameof(ikFrames));
             }
 
-            // 明確指定 932 編碼，避免一些情況下出現 Encoding name 'shift_jis' not supported 的問題
             var shiftJisEncoding = Encoding.GetEncoding(932);
 
             using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write))
