@@ -10,6 +10,10 @@
     "说明08": "多个 BlendShape 可映射到同一个 Morph，效果会叠加。",
     "说明09": "支持一对一、一对多、多对一、多对多映射。",
     "说明10": "-----------------------------------------------------------------",
+    "说明11": "恋活表情分析",
+    "说明12": "cl表示close，op表示open，分别表示同一个表情嘴巴闭上和张开的两种版本",
+    "说明13": "ss表示supersmall，s表示small，l表示large，分别表示嘴巴大小不同的版本",
+    "说明14": "-----------------------------------------------------------------",
     "BsToMorphMappings": {
         "eye_face.f00_def_cl": [
             {
@@ -18,11 +22,26 @@
             }
         ],
         "eye_face.f00_def_op": [],
-        "eye_face.f00_egao_cl": [],
+        "eye_face.f00_egao_cl": [
+            {
+                "Morph": "まばたき",
+                "MappingWeight": 1.0
+            }
+        ],
         "eye_face.f00_egao_op": [],
         "eye_face.f00_bisyou_op": [],
-        "eye_face.f00_winkl_op": [],
-        "eye_face.f00_winkr_op": [],
+        "eye_face.f00_winkl_op": [
+            {
+                "Morph": "ウィンク",
+                "MappingWeight": 1.0
+            }
+        ],
+        "eye_face.f00_winkr_op": [
+            {
+                "Morph": "ウィンク右",
+                "MappingWeight": 1.0
+            }
+        ],
         "eye_face.f00_setunai_op": [],
         "eye_face.f00_tere_op": [],
         "eye_face.f00_ikari_op": [],
@@ -45,58 +64,378 @@
         "eye_face.f00_gyur02_op": [],
         "eye_face.f00_gyu02_cl": [],
         "kuti_face.f00_def_cl": [],
-        "kuti_face.f00_def_op": [],
-        "kuti_face.f00_egao_op": [],
-        "kuti_face.f00_bisyou_op": [],
-        "kuti_face.f00_uresi_cl": [],
-        "kuti_face.f00_uresi_op": [],
-        "kuti_face.f00_uresi_s_op": [],
-        "kuti_face.f00_uresi_ss_op": [],
-        "kuti_face.f00_doki_cl": [],
-        "kuti_face.f00_doki_s_op": [],
-        "kuti_face.f00_doki_s_cl": [],
-        "kuti_face.f00_doki_ss_cl": [],
-        "kuti_face.f00_doki_ss_op": [],
-        "kuti_face.f00_ikari_cl": [],
-        "kuti_face.f00_ikari_op": [],
-        "kuti_face.f00_ikari02_op": [],
-        "kuti_face.f00_sinken02_op": [],
-        "kuti_face.f00_sinken03_cl": [],
-        "kuti_face.f00_sinken03_op": [],
-        "kuti_face.f00_keno_op": [],
-        "kuti_face.f00_sabisi_op": [],
-        "kuti_face.f00_aseri_op": [],
-        "kuti_face.f00_human_cl": [],
-        "kuti_face.f00_akire_op": [],
-        "kuti_face.f00_odoro_op": [],
-        "kuti_face.f00_odoro_s_op": [],
-        "kuti_face.f00_doya_cl": [],
-        "kuti_face.f00_doya_op": [],
-        "kuti_face.f00_pero_cl": [],
-        "kuti_face.f00_name_op": [],
-        "kuti_face.f00_kuwae_op": [],
-        "kuti_face.f00_kisu_op": [],
-        "kuti_face.f00_name02_op": [],
-        "kuti_face.f00_a_s_op": [],
-        "kuti_face.f00_a_l_op": [],
-        "kuti_face.f00_i_s_op": [],
-        "kuti_face.f00_i_l_op": [],
-        "kuti_face.f00_u_s_op": [],
-        "kuti_face.f00_u_l_op": [],
-        "kuti_face.f00_e_s_op": [],
-        "kuti_face.f00_e_l_op": [],
-        "kuti_face.f00_o_s_op": [],
-        "kuti_face.f00_o_l_op": [],
-        "kuti_face.f00_n_s_cl": [],
-        "kuti_face.f00_n_l_cl": [],
-        "kuti_face.f00_neko_cl": [],
-        "kuti_face.f00_neko_op": [],
-        "kuti_face.f00_san_op": [],
-        "kuti_face.f00_niko_cl": [],
-        "kuti_face.f00_niko_op": [],
-        "kuti_face.f00_mogu_op": [],
-        "kuti_face.f00_mogu_cl": [],
-        "kuti_face.f00_tabe_op": [],
+        "kuti_face.f00_def_op": [
+            {
+                "Morph": "い",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_egao_op": [
+            {
+                "Morph": "い",
+                "MappingWeight": 2.0
+            }
+        ],
+        "kuti_face.f00_bisyou_op": [
+            {
+                "Morph": "口角上げ",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_uresi_cl": [
+            {
+                "Morph": "口角上げ",
+                "MappingWeight": 1.0
+            },
+            {
+                "Morph": "口横広げ",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_uresi_op": [
+            {
+                "Morph": "ワ",
+                "MappingWeight": 0.7
+            }
+        ],
+        "kuti_face.f00_uresi_s_op": [
+            {
+                "Morph": "い",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_uresi_ss_op": [
+            {
+                "Morph": "い",
+                "MappingWeight": 0.5
+            }
+        ],
+        "kuti_face.f00_doki_cl": [
+            {
+                "Morph": "にやり",
+                "MappingWeight": 0.5
+            }
+        ],
+        "kuti_face.f00_doki_s_op": [
+            {
+                "Morph": "え",
+                "MappingWeight": 0.5
+            },
+            {
+                "Morph": "ん",
+                "MappingWeight": 0.5
+            }
+        ],
+        "kuti_face.f00_doki_s_cl": [
+            {
+                "Morph": "ん",
+                "MappingWeight": 0.5
+            }
+        ],
+        "kuti_face.f00_doki_ss_cl": [
+            {
+                "Morph": "ん",
+                "MappingWeight": 0.5
+            }
+        ],
+        "kuti_face.f00_doki_ss_op": [
+            {
+                "Morph": "ワ",
+                "MappingWeight": 0.5
+            },
+            {
+                "Morph": "ん",
+                "MappingWeight": 0.5
+            }
+        ],
+        "kuti_face.f00_ikari_cl": [
+            {
+                "Morph": "∧",
+                "MappingWeight": 0.35
+            }
+        ],
+        "kuti_face.f00_ikari_op": [
+            {
+                "Morph": "□",
+                "MappingWeight": 0.35
+            }
+        ],
+        "kuti_face.f00_ikari02_op": [
+            {
+                "Morph": "□",
+                "MappingWeight": 0.35
+            },
+            {
+                "Morph": "ワ",
+                "MappingWeight": 0.2
+            }
+        ],
+        "kuti_face.f00_sinken02_op": [
+            {
+                "Morph": "お",
+                "MappingWeight": 0.35
+            }
+        ],
+        "kuti_face.f00_sinken03_cl": [
+            {
+                "Morph": "口角下げ",
+                "MappingWeight": 0.8
+            }
+        ],
+        "kuti_face.f00_sinken03_op": [
+            {
+                "Morph": "ワ",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_keno_op": [
+            {
+                "Morph": "□",
+                "MappingWeight": 0.15
+            },
+            {
+                "Morph": "ワ",
+                "MappingWeight": 0.2
+            }
+        ],
+        "kuti_face.f00_sabisi_op": [
+            {
+                "Morph": "ワ",
+                "MappingWeight": 0.5
+            },
+            {
+                "Morph": "ん",
+                "MappingWeight": 0.5
+            }
+        ],
+        "kuti_face.f00_aseri_op": [
+            {
+                "Morph": "ワ",
+                "MappingWeight": 0.4
+            }
+        ],
+        "kuti_face.f00_human_cl": [
+            {
+                "Morph": "ん",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_akire_op": [
+            {
+                "Morph": "う",
+                "MappingWeight": 0.5
+            },
+            {
+                "Morph": "▲",
+                "MappingWeight": 0.25
+            }
+        ],
+        "kuti_face.f00_odoro_op": [
+            {
+                "Morph": "お",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_odoro_s_op": [
+            {
+                "Morph": "お",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_doya_cl": [
+            {
+                "Morph": "口角上げ",
+                "MappingWeight": 1.0
+            },
+            {
+                "Morph": "口横広げ",
+                "MappingWeight": 0.3
+            }
+        ],
+        "kuti_face.f00_doya_op": [
+            {
+                "Morph": "口角上げ",
+                "MappingWeight": 1.0
+            },
+            {
+                "Morph": "口横広げ",
+                "MappingWeight": 0.3
+            },
+            {
+                "Morph": "え",
+                "MappingWeight": 0.5
+            }
+        ],
+        "kuti_face.f00_pero_cl": [
+            {
+                "Morph": "う",
+                "MappingWeight": 0.5
+            },
+            {
+                "Morph": "口角上げ",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_name_op": [
+            {
+                "Morph": "お",
+                "MappingWeight": 0.7
+            }
+        ],
+        "kuti_face.f00_kuwae_op": [
+            {
+                "Morph": "あ",
+                "MappingWeight": 1.0
+            },
+            {
+                "Morph": "ワ",
+                "MappingWeight": 0.6
+            }
+        ],
+        "kuti_face.f00_kisu_op": [
+            {
+                "Morph": "う",
+                "MappingWeight": 0.4
+            }
+        ],
+        "kuti_face.f00_name02_op": [
+            {
+                "Morph": "▲",
+                "MappingWeight": 0.7
+            },
+            {
+                "Morph": "ワ",
+                "MappingWeight": 0.4
+            }
+        ],
+        "kuti_face.f00_a_s_op": [
+            {
+                "Morph": "え",
+                "MappingWeight": 0.4
+            }
+        ],
+        "kuti_face.f00_a_l_op": [
+            {
+                "Morph": "ワ",
+                "MappingWeight": 0.4
+            }
+        ],
+        "kuti_face.f00_i_s_op": [
+            {
+                "Morph": "い",
+                "MappingWeight": 0.6
+            }
+        ],
+        "kuti_face.f00_i_l_op": [
+            {
+                "Morph": "い",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_u_s_op": [
+            {
+                "Morph": "う",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_u_l_op": [
+            {
+                "Morph": "う",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_e_s_op": [
+            {
+                "Morph": "え",
+                "MappingWeight": 0.35
+            }
+        ],
+        "kuti_face.f00_e_l_op": [
+            {
+                "Morph": "え",
+                "MappingWeight": 0.35
+            }
+        ],
+        "kuti_face.f00_o_s_op": [
+            {
+                "Morph": "お",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_o_l_op": [
+            {
+                "Morph": "あ２",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_n_s_cl": [
+            {
+                "Morph": "口角上げ",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_n_l_cl": [
+            {
+                "Morph": "口角上げ",
+                "MappingWeight": 1.0
+            },
+            {
+                "Morph": "口横広げ",
+                "MappingWeight": 0.5
+            }
+        ],
+        "kuti_face.f00_neko_cl": [
+            {
+                "Morph": "ω",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_neko_op": [
+            {
+                "Morph": "ω□",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_san_op": [
+            {
+                "Morph": "▲",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_niko_cl": [
+            {
+                "Morph": "にやり",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_niko_op": [
+            {
+                "Morph": "にやり",
+                "MappingWeight": 1.0
+            },
+            {
+                "Morph": "ワ",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_mogu_op": [
+            {
+                "Morph": "にやり",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_mogu_cl": [
+            {
+                "Morph": "にやり",
+                "MappingWeight": 1.0
+            }
+        ],
+        "kuti_face.f00_tabe_op": [
+            {
+                "Morph": "お",
+                "MappingWeight": 1.0
+            }
+        ],
         "kuti_ha.ha00_def_cl": [],
         "kuti_ha.ha00_def_op": [],
         "kuti_ha.ha00_egao_op": [],
