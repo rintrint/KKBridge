@@ -115,7 +115,7 @@ namespace KKBridge
         }
     }
 
-    [BepInPlugin("com.rintrint.kkbridge", "KKBridge", "0.0.3")]
+    [BepInPlugin("com.rintrint.kkbridge", "KKBridge", "0.0.4")]
     public class KKBridgePlugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
