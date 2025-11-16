@@ -941,7 +941,7 @@ namespace KKBridge.Vmd
             foreach (KeyValuePair<string, List<MorphMapping>> mappingEntry in _config.BsToMorphMappings)
             {
                 string kkBlendshapeName = mappingEntry.Key;
-                List<MorphMapping> targetMorphs = mappingEntry.Value; // 這是一個列表，包含所有目標 Morph
+                List<MorphMapping> targetMorphs = mappingEntry.Value;
 
                 float currentWeight = 0.0f;
                 bool blendshapeFound = false;
@@ -960,20 +960,16 @@ namespace KKBridge.Vmd
                     }
                 }
 
-                // 如果找到了這個 BlendShape 且它有權重
                 if (blendshapeFound)
                 {
                     // 將 KK 的權重 (0-100) 轉換為 VMD 的權重 (0.0-1.0)
                     float baseVmdWeight = currentWeight / 100.0f;
-
-                    // 遍歷所有目標 Morph，並分別計算權重
                     foreach (var morphInfo in targetMorphs)
                     {
                         string pmxMorphName = morphInfo.Morph;
                         float weightMultiplier = morphInfo.MappingWeight;
                         float finalVmdWeight = baseVmdWeight * weightMultiplier;
 
-                        // 核心疊加邏輯
                         if (tempFrames.TryGetValue(pmxMorphName, out var existingFrame))
                         {
                             existingFrame.Weight = Mathf.Max(existingFrame.Weight, finalVmdWeight);
@@ -991,13 +987,7 @@ namespace KKBridge.Vmd
                 }
             }
 
-            // 疊加完成後，處理最終結果
-            foreach (var frame in tempFrames.Values)
-            {
-                frameList.Add(frame);
-            }
-
-            // 清理快取，為下一影格做準備
+            frameList.AddRange(tempFrames.Values);
             _rendererCache.Clear();
             return frameList;
         }
