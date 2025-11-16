@@ -976,7 +976,7 @@ namespace KKBridge.Vmd
                         // 核心疊加邏輯
                         if (tempFrames.TryGetValue(pmxMorphName, out var existingFrame))
                         {
-                            existingFrame.Weight += finalVmdWeight;
+                            existingFrame.Weight = Mathf.Max(existingFrame.Weight, finalVmdWeight);
                         }
                         else
                         {
