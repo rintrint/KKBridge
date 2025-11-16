@@ -755,6 +755,7 @@ namespace KKBridge.Vmd
     {
         // 字典的值是一個 MorphMapping 的列表 (List)
         public Dictionary<string, List<MorphMapping>> BsToMorphMappings { get; set; }
+        public Dictionary<string, Dictionary<string, string>> PtnToMorphMappings { get; set; }
     }
 
     public class VmdMorphFrame
@@ -875,53 +876,105 @@ namespace KKBridge.Vmd
 
                 // 以下是新的解析邏輯
                 var newMappingsDict = new Dictionary<string, List<MorphMapping>>();
-                JSONObject mappingsObject = jsonNode["BsToMorphMappings"].AsObject;
-
-                // 遍歷所有 BlendShape (例如 "eye_face.f00_def_cl")
-                foreach (KeyValuePair<string, JSONNode> kvp in mappingsObject)
+                if (jsonNode.HasKey("BsToMorphMappings") && jsonNode["BsToMorphMappings"].IsObject)
                 {
-                    string kkBlendshapeName = kvp.Key;
-                    JSONNode valueNode = kvp.Value;
+                    JSONObject mappingsObject = jsonNode["BsToMorphMappings"].AsObject;
 
-                    // 預期值永遠是一個陣列
-                    if (valueNode.IsArray)
+                    // 遍歷所有 BlendShape (例如 "eye_face.f00_def_cl")
+                    foreach (KeyValuePair<string, JSONNode> kvp in mappingsObject)
                     {
-                        var mappingList = new List<MorphMapping>();
-                        // 遍歷陣列中的每一個目標 Morph 物件
-                        foreach (JSONNode itemNode in valueNode.AsArray)
-                        {
-                            if (itemNode.IsObject)
-                            {
-                                JSONObject mappingInfo = itemNode.AsObject;
-                                if (mappingInfo.HasKey("Morph") && mappingInfo.HasKey("MappingWeight"))
-                                {
-                                    string pmxMorphName = mappingInfo["Morph"].Value;
-                                    float weight = mappingInfo["MappingWeight"].AsFloat;
+                        string kkBlendshapeName = kvp.Key;
+                        JSONNode valueNode = kvp.Value;
 
-                                    // 只有 Morph 名稱不是空字串時才加入
-                                    if (!string.IsNullOrEmpty(pmxMorphName))
+                        // 預期值永遠是一個陣列
+                        if (valueNode.IsArray)
+                        {
+                            var mappingList = new List<MorphMapping>();
+                            // 遍歷陣列中的每一個目標 Morph 物件
+                            foreach (JSONNode itemNode in valueNode.AsArray)
+                            {
+                                if (itemNode.IsObject)
+                                {
+                                    JSONObject mappingInfo = itemNode.AsObject;
+                                    if (mappingInfo.HasKey("Morph") && mappingInfo.HasKey("MappingWeight"))
                                     {
-                                        mappingList.Add(new MorphMapping(pmxMorphName, weight));
+                                        string pmxMorphName = mappingInfo["Morph"].Value;
+                                        float weight = mappingInfo["MappingWeight"].AsFloat;
+
+                                        // 只有 Morph 名稱不是空字串時才加入
+                                        if (!string.IsNullOrEmpty(pmxMorphName))
+                                        {
+                                            mappingList.Add(new MorphMapping(pmxMorphName, weight));
+                                        }
                                     }
                                 }
                             }
-                        }
 
-                        // 如果這個 BlendShape 至少有一個有效的目標 Morph，才將其加入字典
-                        if (mappingList.Count > 0 && !newMappingsDict.ContainsKey(kkBlendshapeName))
-                        {
-                            newMappingsDict.Add(kkBlendshapeName, mappingList);
+                            // 如果這個 BlendShape 至少有一個有效的目標 Morph，才將其加入字典
+                            if (mappingList.Count > 0 && !newMappingsDict.ContainsKey(kkBlendshapeName))
+                            {
+                                newMappingsDict.Add(kkBlendshapeName, mappingList);
+                            }
                         }
                     }
                 }
+                else
+                {
+                    _logger?.LogWarning("'BsToMorphMappings' key not found in config.json.");
+                }
 
-                _config = new MorphMappingConfig { BsToMorphMappings = newMappingsDict };
-                _logger?.LogInfo($"Successfully loaded {_config.BsToMorphMappings.Count} morph mappings.");
+                var newPtnMappings = new Dictionary<string, Dictionary<string, string>>();
+                if (jsonNode.HasKey("PtnToMorphMappings") && jsonNode["PtnToMorphMappings"].IsObject)
+                {
+                    JSONObject ptnMappingsObject = jsonNode["PtnToMorphMappings"].AsObject;
+
+                    // 遍歷 "Eyebrow", "Eye", "Mouth"
+                    foreach (KeyValuePair<string, JSONNode> categoryKvp in ptnMappingsObject)
+                    {
+                        string categoryName = categoryKvp.Key; // "Eyebrow", "Eye", "Mouth"
+                        if (categoryKvp.Value.IsObject)
+                        {
+                            var innerMap = new Dictionary<string, string>();
+                            JSONObject numberMapObject = categoryKvp.Value.AsObject;
+
+                            // 遍歷 "1": "真面目", "30": "はぅ"
+                            foreach (KeyValuePair<string, JSONNode> ptnKvp in numberMapObject)
+                            {
+                                string ptnNumberString = ptnKvp.Key; // "1", "30"
+                                string vmdMorphName = ptnKvp.Value.Value; // "真面目", "はぅ"
+
+                                if (!string.IsNullOrEmpty(vmdMorphName))
+                                {
+                                    innerMap[ptnNumberString] = vmdMorphName;
+                                }
+                            }
+                            newPtnMappings[categoryName] = innerMap;
+                        }
+                    }
+                    _logger?.LogInfo($"Successfully loaded {newPtnMappings.Count} Ptn mapping categories.");
+                }
+                else
+                {
+                    _logger?.LogWarning("'PtnToMorphMappings' key not found in config.json. Ptn-based morphs will be disabled.");
+                }
+
+                _config = new MorphMappingConfig
+                {
+                    BsToMorphMappings = newMappingsDict,
+                    PtnToMorphMappings = newPtnMappings,
+                };
+                _logger?.LogInfo($"Successfully loaded {_config.BsToMorphMappings.Count} BsToMorphMappings.");
+                _logger?.LogInfo($"Successfully loaded {_config.PtnToMorphMappings.Count} PtnToMorphMappings.");
             }
             catch (Exception ex)
             {
                 _logger?.LogError($"An unexpected error occurred while parsing config.json: {ex.ToString()}");
-                _config = new MorphMappingConfig { BsToMorphMappings = new Dictionary<string, List<MorphMapping>>() }; // 發生錯誤時初始化為空
+                // 發生錯誤時初始化為空
+                _config = new MorphMappingConfig
+                {
+                    BsToMorphMappings = new Dictionary<string, List<MorphMapping>>(),
+                    PtnToMorphMappings = new Dictionary<string, Dictionary<string, string>>()
+                };
             }
         }
 
@@ -931,16 +984,107 @@ namespace KKBridge.Vmd
         public List<VmdMorphFrame> ProcessCharacter(OCIChar ociChar, uint frameNumber)
         {
             var frameList = new List<VmdMorphFrame>();
-            if (_config == null || _config.BsToMorphMappings == null || ociChar == null) return frameList;
+            if (_config == null || ociChar == null || ociChar.charInfo == null) return frameList;
 
             var tempFrames = new Dictionary<string, VmdMorphFrame>();
+
+            // --- 步驟 1: 處理 Ptn 映射並設定優先級旗標 ---
+            bool eyePtnActive = false;
+            bool eyebrowPtnActive = false;
+            bool mouthPtnActive = false;
+
+            if (_config.PtnToMorphMappings != null)
+            {
+                // 獲取當前的 Ptn 編號
+                int eyebrowPtn = ociChar.charInfo.GetEyebrowPtn();
+                int eyesPtn = ociChar.charInfo.GetEyesPtn();
+                int mouthPtn = ociChar.charInfo.GetMouthPtn();
+
+                // 查找並應用 眉 (Eyebrow)
+                if (_config.PtnToMorphMappings.TryGetValue("Eyebrow", out var eyebrowMap) &&
+                    eyebrowMap.TryGetValue(eyebrowPtn.ToString(), out var eyebrowMorphName))
+                {
+                    tempFrames[eyebrowMorphName] = new VmdMorphFrame
+                    {
+                        MorphName = eyebrowMorphName,
+                        FrameNumber = frameNumber,
+                        Weight = 1.0f // Ptn 映射總是 1.0
+                    };
+                    eyebrowPtnActive = true; // *** 設定旗標 ***
+                }
+
+                // 查找並應用 目 (Eye)
+                if (_config.PtnToMorphMappings.TryGetValue("Eye", out var eyeMap) &&
+                    eyeMap.TryGetValue(eyesPtn.ToString(), out var eyeMorphName))
+                {
+                    if (tempFrames.TryGetValue(eyeMorphName, out var existingFrame))
+                    {
+                        existingFrame.Weight = Mathf.Max(existingFrame.Weight, 1.0f);
+                    }
+                    else
+                    {
+                        tempFrames[eyeMorphName] = new VmdMorphFrame
+                        {
+                            MorphName = eyeMorphName,
+                            FrameNumber = frameNumber,
+                            Weight = 1.0f
+                        };
+                    }
+                    eyePtnActive = true; // *** 設定旗標 ***
+                }
+
+                // 查找並應用 口 (Mouth)
+                if (_config.PtnToMorphMappings.TryGetValue("Mouth", out var mouthMap) &&
+                    mouthMap.TryGetValue(mouthPtn.ToString(), out var mouthMorphName))
+                {
+                    if (tempFrames.TryGetValue(mouthMorphName, out var existingFrame))
+                    {
+                        existingFrame.Weight = Mathf.Max(existingFrame.Weight, 1.0f);
+                    }
+                    else
+                    {
+                        tempFrames[mouthMorphName] = new VmdMorphFrame
+                        {
+                            MorphName = mouthMorphName,
+                            FrameNumber = frameNumber,
+                            Weight = 1.0f
+                        };
+                    }
+                    mouthPtnActive = true; // *** 設定旗標 ***
+                }
+            }
+
+            // --- 步驟 2: 處理 BlendShape 映射 (帶優先級檢查) ---
+            if (_config.BsToMorphMappings == null)
+            {
+                frameList.AddRange(tempFrames.Values);
+                _rendererCache.Clear();
+                return frameList;
+            }
+
             // 為提高效率，先快取一次角色的 SkinnedMeshRenderer
             BuildRendererCache(ociChar.charInfo.transform);
 
-            // 主迴圈遍歷設定結構
+            // 主迴圈遍歷 BlendShape 設定
             foreach (KeyValuePair<string, List<MorphMapping>> mappingEntry in _config.BsToMorphMappings)
             {
                 string kkBlendshapeName = mappingEntry.Key;
+
+                // --- 優先級檢查 ---
+                if (eyePtnActive && kkBlendshapeName.StartsWith("eye_"))
+                {
+                    continue; // Ptn 映射優先，跳過這個 Eye BlendShape
+                }
+                if (eyebrowPtnActive && kkBlendshapeName.StartsWith("mayuge."))
+                {
+                    continue; // Ptn 映射優先，跳過這個 Eyebrow BlendShape
+                }
+                if (mouthPtnActive && kkBlendshapeName.StartsWith("kuti_"))
+                {
+                    continue; // Ptn 映射優先，跳過這個 Mouth BlendShape
+                }
+                // --- 檢查結束 ---
+
                 List<MorphMapping> targetMorphs = mappingEntry.Value;
 
                 float currentWeight = 0.0f;
