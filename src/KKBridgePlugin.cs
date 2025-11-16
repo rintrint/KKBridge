@@ -409,7 +409,7 @@ namespace KKBridge
             Image closeButtonImage = closeButtonObj.AddComponent<Image>();
             closeButtonImage.color = buttonBackgroundColor;
             Button closeButton = closeButtonObj.AddComponent<Button>();
-            closeButton.onClick.AddListener(() => { _uiPanel.SetActive(false); });
+            closeButton.onClick.AddListener(ToggleKkBridgeWindow);
             RectTransform closeButtonRect = closeButtonObj.GetComponent<RectTransform>();
             closeButtonRect.anchorMin = new Vector2(1, 1);
             closeButtonRect.anchorMax = new Vector2(1, 1);
