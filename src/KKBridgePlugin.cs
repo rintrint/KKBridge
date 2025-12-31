@@ -610,9 +610,12 @@ namespace KKBridge
                 // --- 階段二：初始化資料結構並開始錄製 ---
                 var boneProcessor = new VmdBoneProcessor(Log);
                 var morphProcessor = new VmdMorphProcessor(Log);
+                var cameraProcessor = new VmdCameraProcessor(Log);
 
                 var allCharactersBoneFrames = new Dictionary<OCIChar, List<VmdBoneFrame>>();
                 var allCharactersMorphFrames = new Dictionary<OCIChar, List<VmdMorphFrame>>();
+                var allCameraFrames = new List<VmdCameraFrame>();
+
                 var characterBoneCaches = new Dictionary<OCIChar, Dictionary<string, Transform>>();
                 foreach (var ociChar in characters)
                 {
@@ -695,6 +698,13 @@ namespace KKBridge
                         allCharactersMorphFrames[ociChar].AddRange(singleFrameMorphData);
                     }
 
+                    // 錄製相機
+                    var camFrame = cameraProcessor.ProcessFrame((uint)currentFrame);
+                    if (camFrame != null)
+                    {
+                        allCameraFrames.Add(camFrame);
+                    }
+
                     previousTime = currentTime;
                     currentFrame++;
                 }
@@ -747,6 +757,38 @@ namespace KKBridge
                     Log.LogInfo($"Character '{charName}': {processedBoneFrames.Count} optimized bone frames remaining.");
                 }
 
+                // --- 處理相機幀 (Camera Frames) ---
+                if (allCameraFrames.Count > 0)
+                {
+                    Log.LogInfo($"Camera: Processing {allCameraFrames.Count} raw frames...");
+
+                    var processedCameraFrames = VmdExporter.PostProcessKeyframes(
+                        allCameraFrames,
+                        frame => "Camera", // 相機只有一軌，給定固定名稱分組
+                        frame => frame.FrameNumber,
+                        (a, b) =>
+                        {
+                            // 判斷兩個幀是否實質相等
+                            // 1. 距離相等
+                            bool distEq = Mathf.Abs(a.Distance - b.Distance) < 1E-06f;
+                            // 2. 目標點位置相等
+                            bool posEq = (a.TargetPosition - b.TargetPosition).sqrMagnitude < 1E-06f;
+                            // 3. 旋轉相等 (歐拉角比較)
+                            bool rotEq = (a.Rotation - b.Rotation).sqrMagnitude < 1E-06f;
+                            // 4. FOV 相等
+                            bool fovEq = a.Fov == b.Fov;
+
+                            return distEq && posEq && rotEq && fovEq;
+                        },
+                        // IsDefault 判斷：相機軌道即使是靜止的也不應該被完全刪除，
+                        // 所以這裡總是回傳 false，確保即使全場靜止也會保留至少一幀。
+                        frame => false
+                    );
+
+                    allCameraFrames = processedCameraFrames;
+                    Log.LogInfo($"Camera: {processedCameraFrames.Count} optimized frames remaining.");
+                }
+
                 // --- 階段四：導出所有角色的 VMD 檔案 ---
                 string outputDirectory = _outputDirectory.Value;
                 Directory.CreateDirectory(outputDirectory);
@@ -783,6 +825,22 @@ namespace KKBridge
                         Log.LogError($"Failed to export VMD for character {charName}: {e.Message}");
                     }
                     charIndex++;
+                }
+
+                // 導出相機 VMD
+                if (allCameraFrames.Count > 0)
+                {
+                    string camPath = Path.Combine(outputDirectory, "camera.vmd");
+                    try
+                    {
+                        Log.LogInfo($"Exporting Camera VMD ({allCameraFrames.Count} frames)...");
+                        VmdCameraProcessor.Export(allCameraFrames, camPath);
+                        Log.LogInfo($"Success: {camPath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogError($"Camera Export Error: {ex.Message}");
+                    }
                 }
             }
             finally

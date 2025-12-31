@@ -82,6 +82,7 @@
     <Compile Include="Compatibility\TimelineCompatibility.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="ThirdParty\SimpleJSON.cs" />
+    <Compile Include="Vmd\VmdCamera.cs" />
     <Compile Include="Vmd\VmdCore.cs" />
   </ItemGroup>
   <ItemGroup>
