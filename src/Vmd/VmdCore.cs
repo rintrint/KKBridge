@@ -48,6 +48,24 @@ namespace KKBridge.Vmd
             // 親子關係是
             // chaF/M_001 BodyTop p_cf_body_bone cf_j_root cf_n_height cf_j_hips ...
             // 選擇cf_j_hips的直接Parent:"cf_n_height"來映射到"全ての親"，以獲得最可靠的結果，避免中間骨骼因任何意外有局部變換導致計算出現偏差
+            // ---------------------
+            // d骨骼才是真正蒙皮的骨骼
+            // 只有arm和thigh有3根d骨骼，大動作有較嚴重的扭轉問題
+            // cf_d_arm01
+            // cf_d_arm02
+            // cf_d_arm03
+            // cf_d_thigh01
+            // cf_d_thigh02
+            // cf_d_thigh03
+            // 映射d骨骼能改善映射j骨骼的扭轉問題
+            // 經過測試使用第一根(cf_d_arm01和cf_d_thigh01)做映射效果最好
+            // 其它只有1根d骨骼的骨骼如下
+            // cf_d_shoulder
+            // cf_d_forearm01
+            // cf_d_hand
+            // cf_d_leg01
+            // cf_d_leg03
+            // 只有1根d骨骼的骨骼目前沒有觀察到嚴重扭轉問題
             new BoneMapEntry( "cf_n_height",        "全ての親", null,       new Quaternion( 0.000000022f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f, 0.000000000f, 1.000000000f, 0.000000000f)),
             new BoneMapEntry( "cf_j_hips",          "センター", "全ての親", new Quaternion(-0.000000044f, 0.000000044f, 0.000000000f, 1.000000000f), new Quaternion( 0.000000000f,-1.000000000f, 0.000000000f,-0.000000044f)),
             new BoneMapEntry( "EyeTargetL",         "左目",     "頭",       new Quaternion( 0.000000000f, 0.000000000f, 0.000000000f, 1.000000000f), new Quaternion( 0.561309993f,-0.577732265f,-0.416540653f, 0.421486050f)),
@@ -59,14 +77,14 @@ namespace KKBridge.Vmd
             new BoneMapEntry( "cf_j_waist01",       "下半身",   "センター", new Quaternion(-0.004499444f,-0.000000044f, 0.000000000f, 0.999989867f), new Quaternion( 0.000000000f,-0.999989927f, 0.004499471f, 0.000000000f)),
             new BoneMapEntry( "cf_j_shoulder_L",    "左肩",     "上半身2",  new Quaternion(-0.124162689f,-0.072256744f, 0.015808962f, 0.989501238f), new Quaternion( 0.437412977f,-0.555561662f,-0.429743975f,-0.561552525f)),
             new BoneMapEntry( "cf_j_shoulder_R",    "右肩",     "上半身2",  new Quaternion( 0.124163061f, 0.072277412f, 0.015806366f, 0.989499748f), new Quaternion(-0.429734826f,-0.561540902f, 0.437421978f,-0.555573404f)),
-            new BoneMapEntry( "cf_j_arm00_L",       "左腕",     "左肩",     new Quaternion(-0.199890256f,-0.002602628f,-0.000835290f, 0.979814529f), new Quaternion( 0.316989094f,-0.632075906f,-0.309348643f,-0.635847032f)),
-            new BoneMapEntry( "cf_j_arm00_R",       "右腕",     "右肩",     new Quaternion( 0.199890271f, 0.002579150f,-0.000838769f, 0.979814529f), new Quaternion(-0.309349507f,-0.635848999f, 0.316988230f,-0.632073879f)),
+            new BoneMapEntry( "cf_d_arm01_L",       "左腕",     "左肩",     new Quaternion(-0.199890256f,-0.002602628f,-0.000835290f, 0.979814529f), new Quaternion( 0.316989094f,-0.632075906f,-0.309348643f,-0.635847032f)),
+            new BoneMapEntry( "cf_d_arm01_R",       "右腕",     "右肩",     new Quaternion( 0.199890271f, 0.002579150f,-0.000838769f, 0.979814529f), new Quaternion(-0.309349507f,-0.635848999f, 0.316988230f,-0.632073879f)),
             new BoneMapEntry( "cf_j_forearm01_L",   "左ひじ",   "左腕",     new Quaternion( 0.001809260f,-0.000001746f,-0.015104761f, 0.999884307f), new Quaternion( 0.308556050f,-0.636232197f,-0.320060164f,-0.630526245f)),
             new BoneMapEntry( "cf_j_forearm01_R",   "右ひじ",   "右腕",     new Quaternion(-0.001809394f, 0.000006890f,-0.015104770f, 0.999884307f), new Quaternion(-0.320059568f,-0.630524814f, 0.308556795f,-0.636233449f)),
             new BoneMapEntry( "cf_j_hand_L",        "左手首",   "左ひじ",   new Quaternion(-0.019762015f,-0.000251624f, 0.030722883f, 0.999332547f), new Quaternion( 0.315517008f,-0.632811487f,-0.287824154f,-0.645876110f)),
             new BoneMapEntry( "cf_j_hand_R",        "右手首",   "右ひじ",   new Quaternion( 0.019762039f, 0.000248441f, 0.030722860f, 0.999332547f), new Quaternion(-0.287824422f,-0.645876825f, 0.315516800f,-0.632810652f)),
-            new BoneMapEntry( "cf_j_thigh00_L",     "左足",     "下半身",   new Quaternion(-0.027437627f,-0.007275635f, 0.007340898f, 0.999570072f), new Quaternion( 0.007308564f,-0.999436498f, 0.031934876f, 0.007308592f)),
-            new BoneMapEntry( "cf_j_thigh00_R",     "右足",     "下半身",   new Quaternion(-0.027437627f, 0.007275635f,-0.007340898f, 0.999570072f), new Quaternion(-0.007308564f,-0.999436498f, 0.031934876f,-0.007308592f)),
+            new BoneMapEntry( "cf_d_thigh01_L",     "左足",     "下半身",   new Quaternion(-0.027437627f,-0.007275635f, 0.007340898f, 0.999570072f), new Quaternion( 0.007308564f,-0.999436498f, 0.031934876f, 0.007308592f)),
+            new BoneMapEntry( "cf_d_thigh01_R",     "右足",     "下半身",   new Quaternion(-0.027437627f, 0.007275635f,-0.007340898f, 0.999570072f), new Quaternion(-0.007308564f,-0.999436498f, 0.031934876f,-0.007308592f)),
             new BoneMapEntry( "cf_j_leg01_L",       "左ひざ",   "左足",     new Quaternion(-0.030566327f, 0.003512908f,-0.004206586f, 0.999517739f), new Quaternion( 0.003436361f,-0.998034835f, 0.062473599f, 0.003436406f)),
             new BoneMapEntry( "cf_j_leg01_R",       "右ひざ",   "右足",     new Quaternion(-0.030566327f,-0.003512908f, 0.004206586f, 0.999517739f), new Quaternion(-0.003436361f,-0.998034835f, 0.062473599f,-0.003436406f)),
             new BoneMapEntry( "cf_j_leg03_L",       "左足首",   "左ひざ",   new Quaternion( 0.064457990f, 0.003096197f,-0.047878154f, 0.996766388f), new Quaternion(-0.000000360f,-0.808708966f,-0.588209033f, 0.000000344f)),
